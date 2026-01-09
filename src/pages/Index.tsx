@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ShoppingCart, Clock, History, Star } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { OrderTypeSelector } from '@/components/OrderTypeSelector';
 import { CategoryTabs } from '@/components/CategoryTabs';
@@ -13,10 +14,11 @@ import { menuItems, categories } from '@/data/menuData';
 import { useCart } from '@/context/CartContext';
 import { MenuItem } from '@/types/menu';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 
 const Index = () => {
   const navigate = useNavigate();
-  const { addItem } = useCart();
+  const { addItem, itemCount, user } = useCart();
   
   const [activeCategory, setActiveCategory] = useState('popular');
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
@@ -60,7 +62,52 @@ const Index = () => {
         onWalletClick={() => setIsWalletOpen(true)}
       />
 
-      <div className="container py-4 px-4">
+      {/* Title Section */}
+      <div className="container px-4 pt-4 pb-2">
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <h1 className="text-2xl font-bold">QuickBite Menu</h1>
+            <div className="flex items-center gap-1 text-sm text-success">
+              <Clock className="w-3.5 h-3.5" />
+              <span>Open now</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('/order-history')}
+              className="relative"
+            >
+              <History className="w-5 h-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsWalletOpen(true)}
+              className="relative"
+            >
+              <Star className="w-5 h-5 text-accent" />
+              <span className="absolute -top-1 -right-1 px-1 min-w-[18px] h-[18px] rounded-full bg-accent text-accent-foreground text-[10px] font-bold flex items-center justify-center">
+                {user.loyaltyPoints > 999 ? '1k+' : user.loyaltyPoints}
+              </span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsCartOpen(true)}
+              className="relative"
+            >
+              <ShoppingCart className="w-5 h-5" />
+              {itemCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
+                  {itemCount}
+                </span>
+              )}
+            </Button>
+          </div>
+        </div>
+
         <OrderTypeSelector onLocationClick={() => setIsLocationOpen(true)} />
       </div>
 

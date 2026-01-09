@@ -10,14 +10,14 @@ interface CategoryTabsProps {
 
 export const CategoryTabs = ({ activeCategory, onCategoryChange, onSearchClick }: CategoryTabsProps) => {
   return (
-    <div className="sticky top-16 z-30 bg-background py-3">
-      <div className="flex gap-2 overflow-x-auto scrollbar-hide px-4">
+    <div className="sticky top-14 z-30 bg-card border-b border-border">
+      <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide px-4 py-2">
         {/* Search Button */}
         <button
           onClick={onSearchClick}
-          className="flex-shrink-0 w-10 h-10 rounded-xl bg-secondary flex items-center justify-center hover:bg-secondary/80 transition-colors"
+          className="flex-shrink-0 w-9 h-9 rounded-lg border border-border flex items-center justify-center hover:bg-secondary transition-colors"
         >
-          <Search className="w-5 h-5 text-muted-foreground" />
+          <Search className="w-4 h-4 text-muted-foreground" />
         </button>
 
         {/* Category Pills */}
@@ -26,10 +26,10 @@ export const CategoryTabs = ({ activeCategory, onCategoryChange, onSearchClick }
             key={category.id}
             onClick={() => onCategoryChange(category.id)}
             className={cn(
-              "flex-shrink-0 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all whitespace-nowrap",
+              "flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap",
               activeCategory === category.id
-                ? "bg-foreground text-background shadow-card"
-                : "bg-secondary text-foreground hover:bg-secondary/80"
+                ? "bg-foreground text-background"
+                : "border border-border text-foreground hover:bg-secondary"
             )}
           >
             {category.name} {category.emoji}
