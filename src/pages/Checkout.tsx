@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import { ArrowLeft, MapPin, Clock, Ticket, Percent, ShoppingCart, ChevronRight, CreditCard, Star } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, Ticket, ShoppingCart, ChevronRight, CreditCard, Wallet, Star, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '@/context/CartContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+
+type PaymentMethod = 'card' | 'wallet' | 'points';
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -18,10 +20,12 @@ const Checkout = () => {
     tax, 
     total, 
     pointsToEarn,
+    user,
     clearCart 
   } = useCart();
 
-  const [tipPercent, setTipPercent] = useState(15);
+  const [tipPercent, setTipPercent] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card');
   const tipAmount = subtotal * (tipPercent / 100);
   const finalTotal = total + tipAmount;
 
@@ -33,8 +37,6 @@ const Checkout = () => {
     cardNumber: '',
     expiry: '',
     cvc: '',
-    promoEmails: true,
-    promoTexts: false,
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -43,7 +45,6 @@ const Checkout = () => {
   };
 
   const handlePlaceOrder = () => {
-    // Simulate order placement
     toast.success('Order placed successfully!', {
       description: 'You will receive a confirmation shortly.',
     });
@@ -51,15 +52,17 @@ const Checkout = () => {
     navigate('/order-tracking');
   };
 
+  const pointsValue = Math.floor(user.loyaltyPoints / 10); // 10 points = ₦1
+
   if (items.length === 0) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
-        <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mb-4">
-          <ShoppingCart className="w-8 h-8 text-muted-foreground" />
+        <div className="w-14 h-14 rounded-full bg-secondary flex items-center justify-center mb-3">
+          <ShoppingCart className="w-6 h-6 text-muted-foreground" />
         </div>
-        <h2 className="text-xl font-bold mb-2">Your cart is empty</h2>
-        <p className="text-muted-foreground mb-6">Add some items to checkout</p>
-        <Button onClick={() => navigate('/')}>Browse Menu</Button>
+        <h2 className="text-lg font-bold mb-1">Your cart is empty</h2>
+        <p className="text-muted-foreground text-sm mb-4">Add items to checkout</p>
+        <Button onClick={() => navigate('/')} className="rounded-full">Browse Menu</Button>
       </div>
     );
   }
@@ -67,221 +70,312 @@ const Checkout = () => {
   return (
     <div className="min-h-screen bg-background pb-32">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-card border-b border-border">
-        <div className="container flex items-center h-16 px-4">
-          <button onClick={() => navigate('/')} className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+      <header className="sticky top-0 z-40 bg-background border-b border-border">
+        <div className="flex items-center h-14 px-4 max-w-2xl mx-auto">
+          <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="w-5 h-5" />
-            <span>Menu</span>
           </button>
-        </div>
-        <div className="px-4 pb-4">
-          <h1 className="text-2xl font-bold">Checkout</h1>
+          <h1 className="text-lg font-bold ml-4">Checkout</h1>
         </div>
       </header>
 
-      <div className="container px-4 py-6 space-y-6">
+      <div className="max-w-2xl mx-auto px-4 py-5 space-y-5">
         {/* Order Summary Card */}
-        <div className="bg-card rounded-2xl p-4 shadow-card space-y-4">
-          <div className="flex items-center gap-3">
-            <MapPin className="w-5 h-5 text-muted-foreground" />
-            <div>
-              <p className="font-semibold">
-                {orderType === 'pickup' ? 'Pick up from' : 'Deliver to'}
-              </p>
-              <p className="text-muted-foreground text-sm">{selectedLocation}</p>
+        <div className="bg-card rounded-2xl border border-border overflow-hidden">
+          <div className="p-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <MapPin className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              <div className="flex-1">
+                <p className="font-medium text-sm">
+                  {orderType === 'pickup' ? 'Pick up from' : 'Deliver to'}
+                </p>
+                <p className="text-muted-foreground text-xs">{selectedLocation}</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <Clock className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              <div className="flex-1">
+                <p className="font-medium text-sm">Today, ASAP</p>
+                <p className="text-muted-foreground text-xs">15-25 min</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground" />
             </div>
           </div>
-          
-          <div className="flex items-center gap-3">
-            <Clock className="w-5 h-5 text-muted-foreground" />
-            <div>
-              <p className="font-semibold">Today by 10:30 PM</p>
-              <p className="text-muted-foreground text-sm">Estimated time</p>
-            </div>
+
+          <div className="border-t border-border">
+            <button className="flex items-center justify-between w-full p-4 hover:bg-secondary/50 transition-colors">
+              <div className="flex items-center gap-3">
+                <Ticket className="w-4 h-4 text-muted-foreground" />
+                <span className="font-medium text-sm">Add coupon</span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            </button>
           </div>
 
-          <button className="flex items-center justify-between w-full py-3 border-t border-border">
-            <div className="flex items-center gap-3">
-              <Ticket className="w-5 h-5 text-muted-foreground" />
-              <span className="font-medium">Add coupon or gift card</span>
-            </div>
-            <ChevronRight className="w-5 h-5 text-muted-foreground" />
-          </button>
+          <div className="border-t border-border">
+            <button className="flex items-center justify-between w-full p-4 hover:bg-secondary/50 transition-colors">
+              <div className="flex items-center gap-3">
+                <ShoppingCart className="w-4 h-4 text-muted-foreground" />
+                <span className="font-medium text-sm">{items.length} item{items.length > 1 ? 's' : ''}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sm">₦{subtotal.toLocaleString()}</span>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </div>
+            </button>
+          </div>
+        </div>
 
-          <button className="flex items-center justify-between w-full py-3 border-t border-border">
-            <div className="flex items-center gap-3">
-              <Percent className="w-5 h-5 text-muted-foreground" />
-              <span className="font-medium">Tip</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">{tipPercent}%</span>
-              <span className="font-semibold">${tipAmount.toFixed(2)}</span>
-              <ChevronRight className="w-5 h-5 text-muted-foreground" />
-            </div>
-          </button>
-
-          <button className="flex items-center justify-between w-full py-3 border-t border-border">
-            <div className="flex items-center gap-3">
-              <ShoppingCart className="w-5 h-5 text-muted-foreground" />
-              <span className="font-medium">{items.length} item{items.length > 1 ? 's' : ''}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="font-semibold">${subtotal.toFixed(2)}</span>
-              <ChevronRight className="w-5 h-5 text-muted-foreground" />
-            </div>
-          </button>
+        {/* Tip Section */}
+        <div className="bg-card rounded-2xl border border-border p-4">
+          <h2 className="font-semibold mb-3">Add a tip</h2>
+          <div className="flex gap-2">
+            {[0, 10, 15, 20].map((percent) => (
+              <button
+                key={percent}
+                onClick={() => setTipPercent(percent)}
+                className={cn(
+                  "flex-1 py-2.5 rounded-full text-sm font-medium border transition-all",
+                  tipPercent === percent 
+                    ? "bg-foreground text-background border-foreground" 
+                    : "border-border hover:bg-secondary"
+                )}
+              >
+                {percent === 0 ? 'None' : `${percent}%`}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Your Information */}
-        <div className="bg-card rounded-2xl p-6 shadow-card space-y-4">
-          <h2 className="text-lg font-bold">Your information</h2>
+        <div className="bg-card rounded-2xl border border-border p-4">
+          <h2 className="font-semibold mb-4">Your information</h2>
           
           <div className="space-y-3">
             <div>
-              <Label htmlFor="phone">Mobile number</Label>
+              <Label htmlFor="phone" className="text-xs">Phone number</Label>
               <Input
                 id="phone"
                 name="phone"
                 type="tel"
-                placeholder="(555) 555-5555"
+                placeholder="+234 800 000 0000"
                 value={formData.phone}
                 onChange={handleInputChange}
-                className="mt-1.5"
+                className="mt-1 h-11"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label htmlFor="firstName">First name</Label>
+                <Label htmlFor="firstName" className="text-xs">First name</Label>
                 <Input
                   id="firstName"
                   name="firstName"
                   placeholder="First name"
                   value={formData.firstName}
                   onChange={handleInputChange}
-                  className="mt-1.5"
+                  className="mt-1 h-11"
                 />
               </div>
               <div>
-                <Label htmlFor="lastName">Last name</Label>
+                <Label htmlFor="lastName" className="text-xs">Last name</Label>
                 <Input
                   id="lastName"
                   name="lastName"
                   placeholder="Last name"
                   value={formData.lastName}
                   onChange={handleInputChange}
-                  className="mt-1.5"
+                  className="mt-1 h-11"
                 />
               </div>
             </div>
 
             <div>
-              <Label htmlFor="email">Email address</Label>
+              <Label htmlFor="email" className="text-xs">Email</Label>
               <Input
                 id="email"
                 name="email"
                 type="email"
-                placeholder="Email address"
+                placeholder="you@example.com"
                 value={formData.email}
                 onChange={handleInputChange}
-                className="mt-1.5"
+                className="mt-1 h-11"
               />
             </div>
-
-            <div className="space-y-3 pt-2">
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="promoEmails" 
-                  checked={formData.promoEmails}
-                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, promoEmails: !!checked }))}
-                />
-                <label htmlFor="promoEmails" className="text-sm">
-                  Get promotional emails from QuickBite
-                </label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="promoTexts" 
-                  checked={formData.promoTexts}
-                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, promoTexts: !!checked }))}
-                />
-                <label htmlFor="promoTexts" className="text-sm">
-                  Get promotional texts from QuickBite
-                </label>
-              </div>
-            </div>
           </div>
         </div>
 
-        {/* Payment */}
-        <div className="bg-card rounded-2xl p-6 shadow-card space-y-4">
-          <h2 className="text-lg font-bold">Payment</h2>
+        {/* Payment Method */}
+        <div className="bg-card rounded-2xl border border-border p-4">
+          <h2 className="font-semibold mb-4">Payment method</h2>
           
-          <div className="space-y-3">
-            <div>
-              <Label htmlFor="cardNumber">Card number</Label>
-              <div className="relative">
-                <Input
-                  id="cardNumber"
-                  name="cardNumber"
-                  placeholder="0000 0000 0000 0000"
-                  value={formData.cardNumber}
-                  onChange={handleInputChange}
-                  className="mt-1.5 pl-12"
-                />
-                <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 mt-0.75 w-5 h-5 text-muted-foreground" />
+          <div className="space-y-2">
+            {/* Card Option */}
+            <button
+              onClick={() => setPaymentMethod('card')}
+              className={cn(
+                "w-full flex items-center gap-3 p-3 rounded-xl border transition-all",
+                paymentMethod === 'card' 
+                  ? "border-foreground bg-secondary" 
+                  : "border-border hover:bg-secondary/50"
+              )}
+            >
+              <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center">
+                <CreditCard className="w-5 h-5" />
               </div>
-            </div>
+              <div className="flex-1 text-left">
+                <p className="font-medium text-sm">Card</p>
+                <p className="text-xs text-muted-foreground">Visa, Mastercard, Verve</p>
+              </div>
+              {paymentMethod === 'card' && (
+                <div className="w-5 h-5 rounded-full bg-foreground flex items-center justify-center">
+                  <Check className="w-3 h-3 text-background" />
+                </div>
+              )}
+            </button>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label htmlFor="expiry">Expiry date</Label>
-                <Input
-                  id="expiry"
-                  name="expiry"
-                  placeholder="MM / YY"
-                  value={formData.expiry}
-                  onChange={handleInputChange}
-                  className="mt-1.5"
-                />
+            {/* Wallet Option */}
+            <button
+              onClick={() => setPaymentMethod('wallet')}
+              className={cn(
+                "w-full flex items-center gap-3 p-3 rounded-xl border transition-all",
+                paymentMethod === 'wallet' 
+                  ? "border-foreground bg-secondary" 
+                  : "border-border hover:bg-secondary/50"
+              )}
+            >
+              <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center">
+                <Wallet className="w-5 h-5" />
               </div>
+              <div className="flex-1 text-left">
+                <p className="font-medium text-sm">Wallet</p>
+                <p className="text-xs text-muted-foreground">Balance: ₦{user.walletBalance.toLocaleString()}</p>
+              </div>
+              {paymentMethod === 'wallet' && (
+                <div className="w-5 h-5 rounded-full bg-foreground flex items-center justify-center">
+                  <Check className="w-3 h-3 text-background" />
+                </div>
+              )}
+            </button>
+
+            {/* Points Option */}
+            <button
+              onClick={() => setPaymentMethod('points')}
+              className={cn(
+                "w-full flex items-center gap-3 p-3 rounded-xl border transition-all",
+                paymentMethod === 'points' 
+                  ? "border-foreground bg-secondary" 
+                  : "border-border hover:bg-secondary/50"
+              )}
+            >
+              <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center">
+                <Star className="w-5 h-5" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="font-medium text-sm">Points</p>
+                <p className="text-xs text-muted-foreground">{user.loyaltyPoints.toLocaleString()} pts (₦{pointsValue.toLocaleString()})</p>
+              </div>
+              {paymentMethod === 'points' && (
+                <div className="w-5 h-5 rounded-full bg-foreground flex items-center justify-center">
+                  <Check className="w-3 h-3 text-background" />
+                </div>
+              )}
+            </button>
+          </div>
+
+          {/* Card Details (show only if card selected) */}
+          {paymentMethod === 'card' && (
+            <div className="mt-4 pt-4 border-t border-border space-y-3">
               <div>
-                <Label htmlFor="cvc">Security code</Label>
-                <Input
-                  id="cvc"
-                  name="cvc"
-                  placeholder="CVC"
-                  value={formData.cvc}
-                  onChange={handleInputChange}
-                  className="mt-1.5"
-                />
+                <Label htmlFor="cardNumber" className="text-xs">Card number</Label>
+                <div className="relative">
+                  <Input
+                    id="cardNumber"
+                    name="cardNumber"
+                    placeholder="0000 0000 0000 0000"
+                    value={formData.cardNumber}
+                    onChange={handleInputChange}
+                    className="mt-1 h-11 pl-11"
+                  />
+                  <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 mt-0.5 w-5 h-5 text-muted-foreground" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="expiry" className="text-xs">Expiry</Label>
+                  <Input
+                    id="expiry"
+                    name="expiry"
+                    placeholder="MM/YY"
+                    value={formData.expiry}
+                    onChange={handleInputChange}
+                    className="mt-1 h-11"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="cvc" className="text-xs">CVC</Label>
+                  <Input
+                    id="cvc"
+                    name="cvc"
+                    placeholder="123"
+                    value={formData.cvc}
+                    onChange={handleInputChange}
+                    className="mt-1 h-11"
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Points Banner */}
-        <div className="flex items-center gap-2 px-4 py-3 gradient-points rounded-xl text-accent-foreground">
-          <Star className="w-4 h-4 fill-current" />
-          <span className="text-sm font-semibold">
-            You'll earn <strong>{pointsToEarn} points</strong> with this order
+        {/* Points Earned Banner */}
+        <div className="flex items-center gap-2 px-4 py-3 bg-secondary rounded-xl">
+          <Star className="w-4 h-4" />
+          <span className="text-sm">
+            You'll earn <strong>{pointsToEarn} points</strong>
           </span>
+        </div>
+
+        {/* Order Summary */}
+        <div className="bg-card rounded-2xl border border-border p-4 space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Subtotal</span>
+            <span>₦{subtotal.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Tax</span>
+            <span>₦{tax.toLocaleString()}</span>
+          </div>
+          {tipAmount > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Tip</span>
+              <span>₦{tipAmount.toLocaleString()}</span>
+            </div>
+          )}
+          <div className="flex justify-between font-bold pt-2 border-t border-border">
+            <span>Total</span>
+            <span>₦{finalTotal.toLocaleString()}</span>
+          </div>
         </div>
       </div>
 
       {/* Bottom CTA */}
-      <div className="fixed bottom-0 inset-x-0 p-4 bg-card border-t border-border">
-        <Button
-          onClick={handlePlaceOrder}
-          className="w-full h-14 text-lg font-bold"
-          size="lg"
-        >
-          Place order
-          <ChevronRight className="w-5 h-5 ml-1" />
-        </Button>
-        <p className="text-xs text-muted-foreground text-center mt-3">
-          By placing this order, you agree to our Terms & Policies.
-        </p>
+      <div className="fixed bottom-0 inset-x-0 p-4 bg-background border-t border-border safe-bottom">
+        <div className="max-w-2xl mx-auto">
+          <Button
+            onClick={handlePlaceOrder}
+            className="w-full h-12 text-base font-semibold rounded-full"
+            size="lg"
+          >
+            Place order · ₦{finalTotal.toLocaleString()}
+          </Button>
+          <p className="text-xs text-muted-foreground text-center mt-2">
+            By placing this order, you agree to our Terms & Policies.
+          </p>
+        </div>
       </div>
     </div>
   );

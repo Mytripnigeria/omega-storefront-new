@@ -6,12 +6,15 @@ interface CartContextType {
   user: User;
   orderType: 'pickup' | 'delivery';
   selectedLocation: string;
+  selectedTime: string;
+  isLoggedIn: boolean;
   addItem: (menuItem: MenuItem, quantity?: number, options?: { [key: string]: string[] }, specialRequest?: string) => void;
   removeItem: (itemId: string) => void;
   updateQuantity: (itemId: string, quantity: number) => void;
   clearCart: () => void;
   setOrderType: (type: 'pickup' | 'delivery') => void;
   setSelectedLocation: (location: string) => void;
+  setSelectedTime: (time: string) => void;
   subtotal: number;
   tax: number;
   total: number;
@@ -24,14 +27,16 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [items, setItems] = useState<CartItem[]>([]);
   const [orderType, setOrderType] = useState<'pickup' | 'delivery'>('pickup');
-  const [selectedLocation, setSelectedLocation] = useState('Downtown');
+  const [selectedLocation, setSelectedLocation] = useState('Lekki Phase 1');
+  const [selectedTime, setSelectedTime] = useState('ASAP');
+  const [isLoggedIn] = useState(false);
   
-  // Mock user data - in real app would come from auth
+  // Mock user data
   const [user] = useState<User>({
     id: '1',
-    name: 'John Doe',
-    email: 'john@example.com',
-    walletBalance: 25.50,
+    name: 'Guest User',
+    email: 'guest@example.com',
+    walletBalance: 15000,
     loyaltyPoints: 1250,
     tier: 'gold',
   });
@@ -83,9 +88,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const subtotal = items.reduce((sum, item) => sum + (item.menuItem.price * item.quantity), 0);
-  const tax = subtotal * 0.08;
+  const tax = Math.round(subtotal * 0.075);
   const total = subtotal + tax;
-  const pointsToEarn = Math.floor(subtotal * 10);
+  const pointsToEarn = Math.floor(subtotal / 100) * 10;
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
@@ -94,12 +99,15 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       user,
       orderType,
       selectedLocation,
+      selectedTime,
+      isLoggedIn,
       addItem,
       removeItem,
       updateQuantity,
       clearCart,
       setOrderType,
       setSelectedLocation,
+      setSelectedTime,
       subtotal,
       tax,
       total,
