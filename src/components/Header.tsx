@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ShoppingCart, User, History, Moon, Sun, Star } from 'lucide-react';
+import { ShoppingCart, User, Moon, Sun, Star } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { Button } from '@/components/ui/button';
 import { useTheme } from '@/hooks/useTheme';
@@ -17,18 +17,8 @@ export const Header = ({ onCartClick, onWalletClick, onSignInClick, isLoggedIn }
   const { theme, toggleTheme } = useTheme();
 
   return (
-    <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm border-b border-border">
+    <header className="bg-background border-b border-border">
       <div className="container flex items-center justify-between h-14 px-4 max-w-7xl mx-auto">
-        <div 
-          className="flex items-center gap-2 cursor-pointer"
-          onClick={() => navigate('/')}
-        >
-          <div className="w-8 h-8 rounded-full bg-foreground flex items-center justify-center">
-            <span className="text-background text-sm font-bold">MJ</span>
-          </div>
-          <span className="font-bold text-lg tracking-tight">Mr. Jollof</span>
-        </div>
-
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
@@ -41,15 +31,6 @@ export const Header = ({ onCartClick, onWalletClick, onSignInClick, isLoggedIn }
             ) : (
               <Moon className="w-[18px] h-[18px]" />
             )}
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/order-history')}
-            className="w-9 h-9"
-          >
-            <History className="w-[18px] h-[18px]" />
           </Button>
 
           <Button
@@ -88,6 +69,16 @@ export const Header = ({ onCartClick, onWalletClick, onSignInClick, isLoggedIn }
           >
             <User className="w-[18px] h-[18px]" />
           </Button>
+        </div>
+
+        <div 
+          className="flex items-center gap-2 cursor-pointer"
+          onClick={() => navigate('/')}
+        >
+          <span className="font-bold text-lg tracking-tight">Mr. Jollof</span>
+          <div className="w-8 h-8 rounded-full bg-foreground flex items-center justify-center">
+            <span className="text-background text-sm font-bold">MJ</span>
+          </div>
         </div>
       </div>
     </header>

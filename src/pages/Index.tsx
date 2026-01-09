@@ -139,6 +139,7 @@ const Index = () => {
         activeCategory={activeCategory}
         onCategoryChange={handleCategoryChange}
         onSearchClick={() => {}}
+        onItemClick={handleItemClick}
       />
 
       {/* Menu Sections */}

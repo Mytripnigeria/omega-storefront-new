@@ -15,7 +15,7 @@ export const MenuItemCard = ({ item, onClick, onQuickAdd }: MenuItemCardProps) =
     >
       <div className="flex-1 min-w-0 flex flex-col justify-center">
         <h3 className="font-semibold text-base text-foreground mb-1">{item.name}</h3>
-        <p className="text-base font-semibold text-foreground mb-1">${item.price.toFixed(2)}</p>
+        <p className="text-base font-semibold text-foreground mb-1">₦{item.price.toLocaleString()}</p>
         <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">{item.description}</p>
       </div>
       <div className="relative flex-shrink-0">

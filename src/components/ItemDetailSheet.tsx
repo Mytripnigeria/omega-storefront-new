@@ -80,7 +80,8 @@ export const ItemDetailSheet = ({ item, isOpen, onClose }: ItemDetailSheetProps)
       {/* Sheet */}
       <div 
         className={cn(
-          "fixed inset-x-0 bottom-0 z-50 bg-card rounded-t-3xl shadow-modal transition-transform duration-300 max-h-[90vh] overflow-hidden flex flex-col",
+          "fixed inset-x-0 bottom-0 z-50 bg-card rounded-t-3xl shadow-modal transition-transform duration-300 overflow-hidden flex flex-col",
+          "h-[90vh] max-h-[90vh]",
           isOpen ? "translate-y-0" : "translate-y-full"
         )}
       >
