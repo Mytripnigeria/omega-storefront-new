@@ -47,7 +47,8 @@ export const CartSheet = ({ isOpen, onClose, onCheckout }: CartSheetProps) => {
       {/* Sheet */}
       <div 
         className={cn(
-          "fixed inset-x-0 bottom-0 z-50 bg-card rounded-t-3xl shadow-modal transition-transform duration-300 max-h-[90vh] flex flex-col",
+          "fixed inset-x-0 bottom-0 z-50 bg-card rounded-t-3xl shadow-modal transition-transform duration-300 flex flex-col",
+          "h-[85vh] max-h-[85vh]",
           isOpen ? "translate-y-0" : "translate-y-full"
         )}
       >
