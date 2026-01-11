@@ -113,10 +113,10 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-28 lg:pb-8">
+    <div className="min-h-screen bg-background pb-32 lg:pb-8">
 
       {/* Hero Section */}
-      <div className="px-4 pt-5 pb-3 max-w-7xl mx-auto">
+      <div className="px-4 pt-6 pb-4 max-w-7xl mx-auto lg:px-6">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Mr. Jollof</h1>
@@ -144,9 +144,9 @@ const Index = () => {
       />
 
       {/* Menu Content - Two column layout on desktop */}
-      <div className="max-w-7xl mx-auto lg:flex lg:gap-6 lg:px-4">
+      <div className="max-w-7xl mx-auto lg:flex lg:gap-8 lg:px-6">
         {/* Menu Sections */}
-        <main className="pt-4 pb-8 flex-1">
+        <main className="pt-4 pb-8 flex-1 lg:pt-6">
           {categories.map(category => {
             const items = groupedItems[category.id] || [];
             if (items.length === 0) return null;
@@ -169,8 +169,8 @@ const Index = () => {
           })}
         </main>
 
-        {/* Desktop Cart Summary */}
-        <aside className="hidden lg:block w-80 pt-4">
+        {/* Desktop Cart Summary - aligned with category tabs */}
+        <aside className="hidden lg:block w-80 pt-6 flex-shrink-0">
           <DesktopCartSummary onCheckout={handleCheckout} />
         </aside>
       </div>

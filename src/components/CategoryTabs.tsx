@@ -63,58 +63,60 @@ export const CategoryTabs = ({
   };
 
   return (
-    <div className="sticky top-0 z-30 bg-card border-b border-border max-w-7xl mx-auto">
-      <div ref={scrollRef} className="flex items-center gap-2 overflow-x-auto scrollbar-hide px-4 py-2">
-        {/* Search Button / Input (filters menu items) */}
-        <div ref={searchContainerRef} className="relative flex-shrink-0">
-          {isSearchOpen ? (
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => onSearchQueryChange(e.target.value)}
-                  placeholder="Search menu..."
-                  className="w-48 sm:w-64 h-9 pl-10 pr-4 rounded-lg bg-secondary text-sm focus:outline-none focus:ring-2 focus:ring-foreground/20"
-                />
+    <div className="sticky top-0 z-30 bg-card border-b border-border">
+      <div className="max-w-7xl mx-auto">
+        <div ref={scrollRef} className="flex items-center gap-2 overflow-x-auto scrollbar-hide px-4 py-3 lg:px-6">
+          {/* Search Button / Input (filters menu items) */}
+          <div ref={searchContainerRef} className="relative flex-shrink-0">
+            {isSearchOpen ? (
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => onSearchQueryChange(e.target.value)}
+                    placeholder="Search menu..."
+                    className="w-48 sm:w-64 h-9 pl-10 pr-4 rounded-lg bg-secondary text-sm focus:outline-none focus:ring-2 focus:ring-foreground/20"
+                  />
+                </div>
+                <button
+                  onClick={handleSearchClose}
+                  className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-secondary transition-colors"
+                  aria-label="Close search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
+            ) : (
               <button
-                onClick={handleSearchClose}
-                className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-secondary transition-colors"
-                aria-label="Close search"
+                onClick={() => setIsSearchOpen(true)}
+                className="w-9 h-9 rounded-lg border border-border flex items-center justify-center hover:bg-secondary transition-colors"
+                aria-label="Search"
               >
-                <X className="w-4 h-4" />
+                <Search className="w-4 h-4 text-muted-foreground" />
               </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setIsSearchOpen(true)}
-              className="w-9 h-9 rounded-lg border border-border flex items-center justify-center hover:bg-secondary transition-colors"
-              aria-label="Search"
-            >
-              <Search className="w-4 h-4 text-muted-foreground" />
-            </button>
-          )}
-        </div>
-
-        {/* Category Pills */}
-        {categories.map((category) => (
-          <button
-            key={category.id}
-            ref={activeCategory === category.id ? activeButtonRef : null}
-            onClick={() => onCategoryChange(category.id)}
-            className={cn(
-              "flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap",
-              activeCategory === category.id
-                ? "bg-foreground text-background"
-                : "border border-border text-foreground hover:bg-secondary",
             )}
-          >
-            {category.name} {category.emoji}
-          </button>
-        ))}
+          </div>
+
+          {/* Category Pills */}
+          {categories.map((category) => (
+            <button
+              key={category.id}
+              ref={activeCategory === category.id ? activeButtonRef : null}
+              onClick={() => onCategoryChange(category.id)}
+              className={cn(
+                "flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap",
+                activeCategory === category.id
+                  ? "bg-foreground text-background"
+                  : "border border-border text-foreground hover:bg-secondary",
+              )}
+            >
+              {category.name} {category.emoji}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
