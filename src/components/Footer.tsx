@@ -1,5 +1,4 @@
 import { ExternalLink } from 'lucide-react';
-import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 
 const footerLinks = [
   { label: 'About Us', href: 'https://example.com/about' },
@@ -27,12 +26,9 @@ export const Footer = () => {
               </a>
             ))}
           </div>
-          <div className="flex items-center justify-between">
-            <ThemeSwitcher />
-            <p className="text-xs text-muted-foreground">
-              © {new Date().getFullYear()} Toasty
-            </p>
-          </div>
+          <p className="text-xs text-muted-foreground">
+            © {new Date().getFullYear()} Toasty
+          </p>
         </div>
 
         {/* Desktop layout */}
@@ -51,12 +47,9 @@ export const Footer = () => {
               </a>
             ))}
           </div>
-          <div className="flex items-center gap-4">
-            <ThemeSwitcher />
-            <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} Toasty. All rights reserved.
-            </p>
-          </div>
+          <p className="text-sm text-muted-foreground">
+            © {new Date().getFullYear()} Toasty. All rights reserved.
+          </p>
         </div>
       </div>
     </footer>

@@ -1,5 +1,4 @@
 import { useNavigate } from 'react-router-dom';
-import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import logo from '@/assets/logo.png';
 
 export const Header = () => {
@@ -14,7 +13,6 @@ export const Header = () => {
         >
           <img src={logo} alt="Mr. Jollof" className="h-10 w-auto" />
         </div>
-        <ThemeSwitcher />
       </div>
     </header>
   );
