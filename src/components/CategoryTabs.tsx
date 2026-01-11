@@ -17,14 +17,13 @@ export const CategoryTabs = ({ activeCategory, onCategoryChange, onItemClick }: 
   const scrollRef = useRef<HTMLDivElement>(null);
   const activeButtonRef = useRef<HTMLButtonElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
 
   // Scroll active category into view
   useEffect(() => {
     if (activeButtonRef.current && scrollRef.current) {
       const container = scrollRef.current;
       const button = activeButtonRef.current;
-      const containerRect = container.getBoundingClientRect();
-      const buttonRect = button.getBoundingClientRect();
       
       const scrollLeft = button.offsetLeft - container.offsetWidth / 2 + button.offsetWidth / 2;
       container.scrollTo({ left: scrollLeft, behavior: 'smooth' });
@@ -38,11 +37,29 @@ export const CategoryTabs = ({ activeCategory, onCategoryChange, onItemClick }: 
     }
   }, [isSearchOpen]);
 
-  const filteredItems = searchQuery.trim()
+  // Close search on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        handleSearchClose();
+      }
+    };
+
+    if (isSearchOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isSearchOpen]);
+
+  // Get suggestions as user types (dropdown style)
+  const suggestions = searchQuery.trim().length > 0
     ? menuItems.filter(item =>
         item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.description.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+      ).slice(0, 6)
     : [];
 
   const handleSearchClose = () => {
@@ -50,76 +67,80 @@ export const CategoryTabs = ({ activeCategory, onCategoryChange, onItemClick }: 
     setSearchQuery('');
   };
 
-  return (
-    <div className="sticky top-0 z-30 bg-card border-b border-border">
-      {/* Search Overlay */}
-      {isSearchOpen && (
-        <div className="absolute inset-x-0 top-0 z-40 bg-card border-b border-border">
-          <div className="flex items-center gap-2 px-4 py-2">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search menu..."
-                className="w-full h-10 pl-10 pr-4 rounded-xl bg-secondary text-sm focus:outline-none focus:ring-2 focus:ring-foreground/20"
-              />
-            </div>
-            <button
-              onClick={handleSearchClose}
-              className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-secondary transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
+  const handleSelectItem = (item: MenuItem) => {
+    onItemClick?.(item);
+    handleSearchClose();
+  };
 
-          {/* Search Results */}
-          {searchQuery.trim() && (
-            <div className="max-h-80 overflow-y-auto border-t border-border">
-              {filteredItems.length === 0 ? (
-                <div className="px-4 py-8 text-center text-muted-foreground text-sm">
-                  No items found for "{searchQuery}"
-                </div>
-              ) : (
-                <div className="py-2">
-                  {filteredItems.map(item => (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        onItemClick?.(item);
-                        handleSearchClose();
-                      }}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary transition-colors text-left"
-                    >
-                      <img 
-                        src={item.image} 
-                        alt={item.name}
-                        className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{item.name}</p>
-                        <p className="text-xs text-muted-foreground truncate">{item.description}</p>
-                      </div>
-                      <span className="font-semibold text-sm flex-shrink-0">₦{item.price.toLocaleString()}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+  return (
+    <div className="sticky top-0 z-30 bg-card border-b border-border max-w-7xl mx-auto">
+      <div ref={scrollRef} className="flex items-center gap-2 overflow-x-auto scrollbar-hide px-4 py-2">
+        {/* Search Button / Input */}
+        <div ref={searchContainerRef} className="relative flex-shrink-0">
+          {isSearchOpen ? (
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search menu..."
+                  className="w-48 sm:w-64 h-9 pl-10 pr-4 rounded-lg bg-secondary text-sm focus:outline-none focus:ring-2 focus:ring-foreground/20"
+                />
+              </div>
+              <button
+                onClick={handleSearchClose}
+                className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-secondary transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsSearchOpen(true)}
+              className="w-9 h-9 rounded-lg border border-border flex items-center justify-center hover:bg-secondary transition-colors"
+            >
+              <Search className="w-4 h-4 text-muted-foreground" />
+            </button>
+          )}
+
+          {/* Search Dropdown */}
+          {isSearchOpen && suggestions.length > 0 && (
+            <div className="absolute top-full left-0 mt-2 w-72 sm:w-80 bg-card rounded-xl border border-border shadow-lg overflow-hidden z-50">
+              <div className="py-1">
+                {suggestions.map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => handleSelectItem(item)}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary transition-colors text-left"
+                  >
+                    <img 
+                      src={item.image} 
+                      alt={item.name}
+                      className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{item.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{item.description}</p>
+                    </div>
+                    <span className="font-semibold text-sm flex-shrink-0">₦{item.price.toLocaleString()}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* No results */}
+          {isSearchOpen && searchQuery.trim().length > 0 && suggestions.length === 0 && (
+            <div className="absolute top-full left-0 mt-2 w-72 sm:w-80 bg-card rounded-xl border border-border shadow-lg overflow-hidden z-50">
+              <div className="px-4 py-6 text-center text-muted-foreground text-sm">
+                No items found for "{searchQuery}"
+              </div>
             </div>
           )}
         </div>
-      )}
-
-      <div ref={scrollRef} className="flex items-center gap-2 overflow-x-auto scrollbar-hide px-4 py-2">
-        {/* Search Button */}
-        <button
-          onClick={() => setIsSearchOpen(true)}
-          className="flex-shrink-0 w-9 h-9 rounded-lg border border-border flex items-center justify-center hover:bg-secondary transition-colors"
-        >
-          <Search className="w-4 h-4 text-muted-foreground" />
-        </button>
 
         {/* Category Pills */}
         {categories.map((category) => (
