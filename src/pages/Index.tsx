@@ -13,8 +13,10 @@ import { TimePickerSheet } from '@/components/TimePickerSheet';
 import { SignInSheet } from '@/components/SignInSheet';
 import { FeaturedBanner } from '@/components/FeaturedBanner';
 import { DesktopCartSummary } from '@/components/DesktopCartSummary';
-import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Footer } from '@/components/Footer';
+import { PageTransition } from '@/components/PageTransition';
+import { BannerSkeleton, MenuSectionSkeleton } from '@/components/skeletons';
+import { useSkeletonLoader } from '@/hooks/useSkeletonLoader';
 import { menuItems, categories } from '@/data/menuData';
 import { useCart } from '@/context/CartContext';
 import { MenuItem } from '@/types/menu';
@@ -24,6 +26,7 @@ import logo from '@/assets/logo.png';
 const Index = () => {
   const navigate = useNavigate();
   const { addItem, isLoggedIn } = useCart();
+  const isLoading = useSkeletonLoader(1500);
 
   const [activeCategory, setActiveCategory] = useState('popular');
   const [searchQuery, setSearchQuery] = useState('');
@@ -116,118 +119,119 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-32 lg:pb-8">
-      {/* Header with Theme Switcher */}
-      <header className="sticky top-0 z-50 bg-background border-b border-border">
-        <div className="flex items-center justify-between h-14 px-4 max-w-7xl mx-auto lg:px-6">
-          <div className="flex items-center gap-2">
-            <img src={logo} alt="Mr. Jollof" className="h-10 w-auto" />
-          </div>
-          <ThemeSwitcher />
-        </div>
-      </header>
-
-      {/* Hero Section */}
-      <div className="px-4 pt-6 pb-4 max-w-7xl mx-auto lg:px-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Mr. Jollof</h1>
-            <div className="flex items-center gap-1 text-sm text-success mt-0.5">
-              <Clock className="w-3.5 h-3.5" />
-              <span>Open · Closes 10pm</span>
+    <PageTransition>
+      <div className="min-h-screen bg-background pb-32 lg:pb-8">
+        {/* Hero Section with Logo */}
+        <div className="px-4 pt-6 pb-4 max-w-7xl mx-auto lg:px-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <img src={logo} alt="Toasty" className="h-14 w-auto" />
+              <div>
+                <div className="flex items-center gap-1 text-sm text-success mt-0.5">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Open · Closes 10pm</span>
+                </div>
+              </div>
             </div>
           </div>
+
+          <OrderTypeSelector 
+            onLocationClick={() => setIsLocationOpen(true)} 
+            onTimeClick={() => setIsTimePickerOpen(true)}
+          />
         </div>
 
-        <OrderTypeSelector 
-          onLocationClick={() => setIsLocationOpen(true)} 
-          onTimeClick={() => setIsTimePickerOpen(true)}
+        {/* Featured Banner */}
+        {isLoading ? <BannerSkeleton /> : <FeaturedBanner />}
+
+        <CategoryTabs
+          activeCategory={activeCategory}
+          onCategoryChange={handleCategoryChange}
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
         />
+
+        {/* Menu Content - Two column layout on desktop */}
+        <div className="max-w-7xl mx-auto lg:flex lg:gap-8 lg:px-6">
+          {/* Menu Sections */}
+          <main className="pt-4 pb-8 flex-1 lg:pt-6">
+            {isLoading ? (
+              <>
+                <MenuSectionSkeleton />
+                <MenuSectionSkeleton />
+              </>
+            ) : (
+              categories.map(category => {
+                const items = groupedItems[category.id] || [];
+                if (items.length === 0) return null;
+                
+                return (
+                  <section
+                    key={category.id}
+                    ref={(el) => (sectionRefs.current[category.id] = el)}
+                    data-category={category.id}
+                    className="mb-6"
+                  >
+                    <MenuSection
+                      categoryId={category.id}
+                      items={items}
+                      onItemClick={handleItemClick}
+                      onQuickAdd={handleQuickAdd}
+                    />
+                  </section>
+                );
+              })
+            )}
+          </main>
+
+          {/* Desktop Cart Summary - aligned with category tabs */}
+          <aside className="hidden lg:block w-80 pt-6 flex-shrink-0">
+            <DesktopCartSummary onCheckout={handleCheckout} />
+          </aside>
+        </div>
+
+        <BottomNav 
+          onCartClick={() => setIsCartOpen(true)}
+          onWalletClick={() => setIsWalletOpen(true)}
+          onSignInClick={() => setIsSignInOpen(true)}
+          isLoggedIn={isLoggedIn}
+        />
+
+        <ItemDetailSheet
+          item={selectedItem}
+          isOpen={isItemSheetOpen}
+          onClose={() => setIsItemSheetOpen(false)}
+        />
+
+        <CartSheet
+          isOpen={isCartOpen}
+          onClose={() => setIsCartOpen(false)}
+          onCheckout={handleCheckout}
+        />
+
+        <WalletSheet
+          isOpen={isWalletOpen}
+          onClose={() => setIsWalletOpen(false)}
+        />
+
+        <LocationSheet
+          isOpen={isLocationOpen}
+          onClose={() => setIsLocationOpen(false)}
+        />
+
+        <TimePickerSheet
+          isOpen={isTimePickerOpen}
+          onClose={() => setIsTimePickerOpen(false)}
+        />
+
+        <SignInSheet
+          isOpen={isSignInOpen}
+          onClose={() => setIsSignInOpen(false)}
+        />
+
+        <Footer />
       </div>
-
-      {/* Featured Banner */}
-      <FeaturedBanner />
-
-      <CategoryTabs
-        activeCategory={activeCategory}
-        onCategoryChange={handleCategoryChange}
-        searchQuery={searchQuery}
-        onSearchQueryChange={setSearchQuery}
-      />
-
-      {/* Menu Content - Two column layout on desktop */}
-      <div className="max-w-7xl mx-auto lg:flex lg:gap-8 lg:px-6">
-        {/* Menu Sections */}
-        <main className="pt-4 pb-8 flex-1 lg:pt-6">
-          {categories.map(category => {
-            const items = groupedItems[category.id] || [];
-            if (items.length === 0) return null;
-            
-            return (
-              <section
-                key={category.id}
-                ref={(el) => (sectionRefs.current[category.id] = el)}
-                data-category={category.id}
-                className="mb-6"
-              >
-                <MenuSection
-                  categoryId={category.id}
-                  items={items}
-                  onItemClick={handleItemClick}
-                  onQuickAdd={handleQuickAdd}
-                />
-              </section>
-            );
-          })}
-        </main>
-
-        {/* Desktop Cart Summary - aligned with category tabs */}
-        <aside className="hidden lg:block w-80 pt-6 flex-shrink-0">
-          <DesktopCartSummary onCheckout={handleCheckout} />
-        </aside>
-      </div>
-
-      <BottomNav 
-        onCartClick={() => setIsCartOpen(true)}
-        onWalletClick={() => setIsWalletOpen(true)}
-        onSignInClick={() => setIsSignInOpen(true)}
-        isLoggedIn={isLoggedIn}
-      />
-
-      <ItemDetailSheet
-        item={selectedItem}
-        isOpen={isItemSheetOpen}
-        onClose={() => setIsItemSheetOpen(false)}
-      />
-
-      <CartSheet
-        isOpen={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
-        onCheckout={handleCheckout}
-      />
-
-      <WalletSheet
-        isOpen={isWalletOpen}
-        onClose={() => setIsWalletOpen(false)}
-      />
-
-      <LocationSheet
-        isOpen={isLocationOpen}
-        onClose={() => setIsLocationOpen(false)}
-      />
-
-      <TimePickerSheet
-        isOpen={isTimePickerOpen}
-        onClose={() => setIsTimePickerOpen(false)}
-      />
-
-      <SignInSheet
-        isOpen={isSignInOpen}
-        onClose={() => setIsSignInOpen(false)}
-      />
-
-      <Footer />
-    </div>
+    </PageTransition>
   );
 };
 
