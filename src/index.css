@@ -57,7 +57,32 @@
     --modal-shadow: 0 -4px 24px -4px hsl(0 0% 0% / 0.12);
   }
 
-  /* Dark mode removed - light only theme */
+  /* Red Theme (Default) */
+  .theme-red {
+    --primary: 0 72% 51%;
+    --primary-foreground: 0 0% 100%;
+    --accent: 0 65% 45%;
+    --accent-foreground: 0 0% 100%;
+    --ring: 0 72% 51%;
+  }
+
+  /* Yellow Theme */
+  .theme-yellow {
+    --primary: 45 93% 47%;
+    --primary-foreground: 0 0% 10%;
+    --accent: 38 92% 50%;
+    --accent-foreground: 0 0% 10%;
+    --ring: 45 93% 47%;
+  }
+
+  /* Black Theme */
+  .theme-black {
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 100%;
+    --accent: 0 0% 20%;
+    --accent-foreground: 0 0% 100%;
+    --ring: 0 0% 9%;
+  }
 }
 
 @layer base {

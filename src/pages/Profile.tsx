@@ -1,11 +1,35 @@
-import { ArrowLeft, User, CreditCard, History, Settings, LogOut, ChevronRight, Star } from 'lucide-react';
+import { ArrowLeft, User, CreditCard, History, Settings, LogOut, ChevronRight, Star, Copy, Share2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '@/context/CartContext';
 import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 
 const Profile = () => {
   const navigate = useNavigate();
   const { user } = useCart();
+
+  const referralLink = `https://mrjollof.com/ref/${user.email?.split('@')[0] || 'user123'}`;
+
+  const handleCopyReferral = () => {
+    navigator.clipboard.writeText(referralLink);
+    toast.success('Referral link copied!');
+  };
+
+  const handleShareReferral = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Join Mr. Jollof',
+          text: 'Get delicious jollof rice and more! Use my referral link:',
+          url: referralLink,
+        });
+      } catch (err) {
+        handleCopyReferral();
+      }
+    } else {
+      handleCopyReferral();
+    }
+  };
 
   const profileMenuItems = [
     { icon: History, label: 'Order History', onClick: () => navigate('/order-history') },
@@ -54,6 +78,25 @@ const Profile = () => {
               <div className="p-4 lg:p-6 bg-card rounded-2xl border border-border text-center">
                 <p className="text-2xl lg:text-3xl font-bold">₦{user.walletBalance.toLocaleString()}</p>
                 <p className="text-sm text-muted-foreground">Wallet</p>
+              </div>
+            </div>
+
+            {/* Referral Section */}
+            <div className="p-4 lg:p-6 bg-card rounded-2xl border border-border mb-6">
+              <h3 className="font-bold mb-2">Refer a Friend</h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                Share your referral link and earn 500 points for each friend who orders!
+              </p>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 px-3 py-2 bg-secondary rounded-lg text-sm truncate text-muted-foreground">
+                  {referralLink}
+                </div>
+                <Button variant="outline" size="icon" onClick={handleCopyReferral} className="rounded-lg flex-shrink-0">
+                  <Copy className="w-4 h-4" />
+                </Button>
+                <Button size="icon" onClick={handleShareReferral} className="rounded-lg flex-shrink-0">
+                  <Share2 className="w-4 h-4" />
+                </Button>
               </div>
             </div>
           </div>

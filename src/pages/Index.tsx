@@ -13,10 +13,13 @@ import { TimePickerSheet } from '@/components/TimePickerSheet';
 import { SignInSheet } from '@/components/SignInSheet';
 import { FeaturedBanner } from '@/components/FeaturedBanner';
 import { DesktopCartSummary } from '@/components/DesktopCartSummary';
+import { ThemeSwitcher } from '@/components/ThemeSwitcher';
+import { Footer } from '@/components/Footer';
 import { menuItems, categories } from '@/data/menuData';
 import { useCart } from '@/context/CartContext';
 import { MenuItem } from '@/types/menu';
 import { toast } from 'sonner';
+import logo from '@/assets/logo.png';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -114,6 +117,15 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background pb-32 lg:pb-8">
+      {/* Header with Theme Switcher */}
+      <header className="sticky top-0 z-50 bg-background border-b border-border">
+        <div className="flex items-center justify-between h-14 px-4 max-w-7xl mx-auto lg:px-6">
+          <div className="flex items-center gap-2">
+            <img src={logo} alt="Mr. Jollof" className="h-10 w-auto" />
+          </div>
+          <ThemeSwitcher />
+        </div>
+      </header>
 
       {/* Hero Section */}
       <div className="px-4 pt-6 pb-4 max-w-7xl mx-auto lg:px-6">
@@ -213,6 +225,8 @@ const Index = () => {
         isOpen={isSignInOpen}
         onClose={() => setIsSignInOpen(false)}
       />
+
+      <Footer />
     </div>
   );
 };
