@@ -123,15 +123,11 @@ const Index = () => {
       <div className="min-h-screen bg-background pb-32 lg:pb-8">
         {/* Hero Section with Logo */}
         <div className="px-4 pt-6 pb-4 max-w-7xl mx-auto lg:px-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <img src={logo} alt="Toasty" className="h-14 w-auto" />
-              <div>
-                <div className="flex items-center gap-1 text-sm text-success mt-0.5">
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>Open · Closes 10pm</span>
-                </div>
-              </div>
+          <div className="mb-4">
+            <img src={logo} alt="Toasty" className="h-14 w-auto mb-2" />
+            <div className="flex items-center gap-1 text-sm text-success">
+              <Clock className="w-3.5 h-3.5" />
+              <span>Open · Closes 10pm</span>
             </div>
           </div>
 
