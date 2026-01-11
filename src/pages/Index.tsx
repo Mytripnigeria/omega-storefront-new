@@ -12,6 +12,7 @@ import { LocationSheet } from '@/components/LocationSheet';
 import { TimePickerSheet } from '@/components/TimePickerSheet';
 import { SignInSheet } from '@/components/SignInSheet';
 import { FeaturedBanner } from '@/components/FeaturedBanner';
+import { DesktopCartSummary } from '@/components/DesktopCartSummary';
 import { menuItems, categories } from '@/data/menuData';
 import { useCart } from '@/context/CartContext';
 import { MenuItem } from '@/types/menu';
@@ -112,7 +113,7 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-28">
+    <div className="min-h-screen bg-background pb-28 lg:pb-8">
 
       {/* Hero Section */}
       <div className="px-4 pt-5 pb-3 max-w-7xl mx-auto">
@@ -142,29 +143,37 @@ const Index = () => {
         onSearchQueryChange={setSearchQuery}
       />
 
-      {/* Menu Sections */}
-      <main className="pt-4 pb-8 max-w-7xl mx-auto">
-        {categories.map(category => {
-          const items = groupedItems[category.id] || [];
-          if (items.length === 0) return null;
-          
-          return (
-            <section
-              key={category.id}
-              ref={(el) => (sectionRefs.current[category.id] = el)}
-              data-category={category.id}
-              className="mb-6"
-            >
-              <MenuSection
-                categoryId={category.id}
-                items={items}
-                onItemClick={handleItemClick}
-                onQuickAdd={handleQuickAdd}
-              />
-            </section>
-          );
-        })}
-      </main>
+      {/* Menu Content - Two column layout on desktop */}
+      <div className="max-w-7xl mx-auto lg:flex lg:gap-6 lg:px-4">
+        {/* Menu Sections */}
+        <main className="pt-4 pb-8 flex-1">
+          {categories.map(category => {
+            const items = groupedItems[category.id] || [];
+            if (items.length === 0) return null;
+            
+            return (
+              <section
+                key={category.id}
+                ref={(el) => (sectionRefs.current[category.id] = el)}
+                data-category={category.id}
+                className="mb-6"
+              >
+                <MenuSection
+                  categoryId={category.id}
+                  items={items}
+                  onItemClick={handleItemClick}
+                  onQuickAdd={handleQuickAdd}
+                />
+              </section>
+            );
+          })}
+        </main>
+
+        {/* Desktop Cart Summary */}
+        <aside className="hidden lg:block w-80 pt-4">
+          <DesktopCartSummary onCheckout={handleCheckout} />
+        </aside>
+      </div>
 
       <BottomNav 
         onCartClick={() => setIsCartOpen(true)}

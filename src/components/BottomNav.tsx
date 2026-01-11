@@ -15,9 +15,9 @@ export const BottomNav = ({ onCartClick, onWalletClick, onSignInClick, isLoggedI
   const { itemCount, subtotal, user } = useCart();
 
   return (
-    <div className="fixed bottom-0 inset-x-0 z-40 safe-bottom">
-      <div className="bg-gradient-to-t from-background via-background to-transparent pt-6 pb-4 px-4">
-        <div className="max-w-7xl mx-auto">
+    <div className="fixed bottom-0 inset-x-0 z-40 safe-bottom lg:hidden">
+      <div className="pt-4 pb-4 px-4">
+        <div className="max-w-lg mx-auto">
           <div className="flex items-center gap-2">
             {/* Icon Buttons */}
             <div className="flex items-center gap-1 bg-card rounded-full p-1 border border-border shadow-card">
@@ -52,7 +52,7 @@ export const BottomNav = ({ onCartClick, onWalletClick, onSignInClick, isLoggedI
             <button
               onClick={onCartClick}
               className={cn(
-                "flex-1 h-14 rounded-full font-bold text-base flex items-center justify-between px-6 transition-all",
+                "flex-1 h-14 rounded-full font-bold text-base flex items-center justify-between px-6 transition-all shadow-lg",
                 "bg-foreground text-background hover:bg-foreground/90"
               )}
             >
