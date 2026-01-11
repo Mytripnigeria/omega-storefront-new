@@ -1,7 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock } from 'lucide-react';
-import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { OrderTypeSelector } from '@/components/OrderTypeSelector';
 import { CategoryTabs } from '@/components/CategoryTabs';
@@ -20,9 +19,10 @@ import { toast } from 'sonner';
 
 const Index = () => {
   const navigate = useNavigate();
-  const { addItem, itemCount, isLoggedIn } = useCart();
-  
+  const { addItem, isLoggedIn } = useCart();
+
   const [activeCategory, setActiveCategory] = useState('popular');
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [isItemSheetOpen, setIsItemSheetOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -34,21 +34,27 @@ const Index = () => {
   const sectionRefs = useRef<{ [key: string]: HTMLElement | null }>({});
 
   const groupedItems = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    const matches = (item: MenuItem) =>
+      q.length === 0 ||
+      item.name.toLowerCase().includes(q) ||
+      item.description.toLowerCase().includes(q);
+
     const groups: { [key: string]: MenuItem[] } = {};
-    
+
     // Popular
-    groups['popular'] = menuItems.filter(item => item.popular);
-    
+    groups['popular'] = menuItems.filter(item => item.popular).filter(matches);
+
     // New
-    groups['new'] = menuItems.filter(item => item.newRelease);
-    
+    groups['new'] = menuItems.filter(item => item.newRelease).filter(matches);
+
     // By category
     categories.filter(c => c.id !== 'popular' && c.id !== 'new').forEach(cat => {
-      groups[cat.id] = menuItems.filter(item => item.category === cat.id);
+      groups[cat.id] = menuItems.filter(item => item.category === cat.id).filter(matches);
     });
-    
+
     return groups;
-  }, []);
+  }, [searchQuery]);
 
   // Intersection observer for sticky category scroll
   useEffect(() => {
@@ -107,7 +113,6 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background pb-28">
-      <Header />
 
       {/* Hero Section */}
       <div className="px-4 pt-5 pb-3 max-w-7xl mx-auto">
@@ -133,8 +138,8 @@ const Index = () => {
       <CategoryTabs
         activeCategory={activeCategory}
         onCategoryChange={handleCategoryChange}
-        onSearchClick={() => {}}
-        onItemClick={handleItemClick}
+        searchQuery={searchQuery}
+        onSearchQueryChange={setSearchQuery}
       />
 
       {/* Menu Sections */}
