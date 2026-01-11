@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock } from 'lucide-react';
 import { Header } from '@/components/Header';
+import { BottomNav } from '@/components/BottomNav';
 import { OrderTypeSelector } from '@/components/OrderTypeSelector';
 import { CategoryTabs } from '@/components/CategoryTabs';
 import { MenuSection } from '@/components/MenuSection';
@@ -12,7 +13,6 @@ import { LocationSheet } from '@/components/LocationSheet';
 import { TimePickerSheet } from '@/components/TimePickerSheet';
 import { SignInSheet } from '@/components/SignInSheet';
 import { FeaturedBanner } from '@/components/FeaturedBanner';
-import { BottomCTA } from '@/components/BottomCTA';
 import { menuItems, categories } from '@/data/menuData';
 import { useCart } from '@/context/CartContext';
 import { MenuItem } from '@/types/menu';
@@ -106,13 +106,8 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <Header 
-        onCartClick={() => setIsCartOpen(true)}
-        onWalletClick={() => setIsWalletOpen(true)}
-        onSignInClick={() => setIsSignInOpen(true)}
-        isLoggedIn={isLoggedIn}
-      />
+    <div className="min-h-screen bg-background pb-28">
+      <Header />
 
       {/* Hero Section */}
       <div className="px-4 pt-5 pb-3 max-w-7xl mx-auto">
@@ -166,7 +161,12 @@ const Index = () => {
         })}
       </main>
 
-      <BottomCTA onStartOrder={() => setIsCartOpen(true)} />
+      <BottomNav 
+        onCartClick={() => setIsCartOpen(true)}
+        onWalletClick={() => setIsWalletOpen(true)}
+        onSignInClick={() => setIsSignInOpen(true)}
+        isLoggedIn={isLoggedIn}
+      />
 
       <ItemDetailSheet
         item={selectedItem}

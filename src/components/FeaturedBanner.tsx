@@ -23,16 +23,44 @@ const banners: BannerItem[] = [
     image: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400&h=200&fit=crop',
     bgColor: 'bg-secondary',
   },
+  {
+    id: '3',
+    title: 'Pepper Soup Friday',
+    subtitle: '20% off all pepper soups',
+    image: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=400&h=200&fit=crop',
+    bgColor: 'bg-foreground',
+  },
+  {
+    id: '4',
+    title: 'Combo Deals',
+    subtitle: 'Rice + Protein from ₦2,500',
+    image: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=400&h=200&fit=crop',
+    bgColor: 'bg-secondary',
+  },
+  {
+    id: '5',
+    title: 'Free Delivery Week',
+    subtitle: 'Orders above ₦5,000',
+    image: 'https://images.unsplash.com/photo-1565299507177-b0ac66763828?w=400&h=200&fit=crop',
+    bgColor: 'bg-foreground',
+  },
+  {
+    id: '6',
+    title: 'New: Ofada Rice',
+    subtitle: 'Try our signature dish',
+    image: 'https://images.unsplash.com/photo-1516714435131-44d6b64dc6a2?w=400&h=200&fit=crop',
+    bgColor: 'bg-secondary',
+  },
 ];
 
 export const FeaturedBanner = () => {
   return (
-    <div className="px-4 py-4">
-      <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2 -mx-4 px-4 lg:mx-0 lg:px-0">
+    <div className="px-4 py-4 max-w-7xl mx-auto">
+      <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2 -mx-4 px-4 lg:mx-0 lg:px-0 lg:grid lg:grid-cols-3 lg:overflow-visible">
         {banners.map((banner) => (
           <div
             key={banner.id}
-            className={`${banner.bgColor} rounded-2xl overflow-hidden flex-shrink-0 w-[85vw] sm:w-[320px] lg:w-[400px] cursor-pointer group`}
+            className={`${banner.bgColor} rounded-2xl overflow-hidden flex-shrink-0 w-[85vw] sm:w-[320px] lg:w-full cursor-pointer group`}
           >
             <div className="flex h-32 sm:h-36">
               <div className="flex-1 p-4 flex flex-col justify-between">

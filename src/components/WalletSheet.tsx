@@ -285,7 +285,7 @@ export const WalletSheet = ({ isOpen, onClose }: WalletSheetProps) => {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 pb-6 safe-bottom">
+        <div className="flex-1 overflow-y-auto px-5 pb-8">
           {view === 'main' && renderMainView()}
           {view === 'addFunds' && renderAddFundsView()}
           {view === 'history' && renderHistoryView()}
