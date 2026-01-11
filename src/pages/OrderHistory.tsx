@@ -1,6 +1,9 @@
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Clock, MapPin, RotateCcw, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { PageTransition } from '@/components/PageTransition';
+import { OrderHistorySkeleton } from '@/components/skeletons';
+import { useSkeletonLoader } from '@/hooks/useSkeletonLoader';
 
 interface OrderItem {
   id: string;
@@ -104,6 +107,7 @@ const mockOrders: Order[] = [
 
 const OrderHistory = () => {
   const navigate = useNavigate();
+  const isLoading = useSkeletonLoader(1500);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -146,105 +150,115 @@ const OrderHistory = () => {
     navigate('/');
   };
 
+  if (isLoading) {
+    return (
+      <PageTransition>
+        <OrderHistorySkeleton />
+      </PageTransition>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-card border-b border-border">
-        <div className="max-w-7xl mx-auto flex items-center h-14 px-4 lg:px-6 gap-4">
-          <button 
-            onClick={() => navigate(-1)}
-            className="w-8 h-8 flex items-center justify-center -ml-2"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h1 className="font-bold text-lg">Order History</h1>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 lg:px-6 py-4">
-        {mockOrders.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 rounded-full bg-secondary mx-auto mb-4 flex items-center justify-center">
-              <Clock className="w-8 h-8 text-muted-foreground" />
-            </div>
-            <h2 className="font-semibold text-lg mb-2">No orders yet</h2>
-            <p className="text-muted-foreground mb-4">Your order history will appear here</p>
-            <Button onClick={() => navigate('/')}>
-              Start ordering
-            </Button>
+    <PageTransition>
+      <div className="min-h-screen bg-background">
+        {/* Header */}
+        <header className="sticky top-0 z-40 bg-card border-b border-border">
+          <div className="max-w-7xl mx-auto flex items-center h-14 px-4 lg:px-6 gap-4">
+            <button 
+              onClick={() => navigate(-1)}
+              className="w-8 h-8 flex items-center justify-center -ml-2"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <h1 className="font-bold text-lg">Order History</h1>
           </div>
-        ) : (
-          <div className="lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-4 space-y-3 lg:space-y-0">
-            {mockOrders.map((order) => (
-              <div 
-                key={order.id}
-                className="bg-card rounded-lg border border-border p-4"
-              >
-                {/* Order Header */}
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-semibold">{order.orderNumber}</span>
-                      {getStatusBadge(order.status)}
+        </header>
+
+        <main className="max-w-7xl mx-auto px-4 lg:px-6 py-4">
+          {mockOrders.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 rounded-full bg-secondary mx-auto mb-4 flex items-center justify-center">
+                <Clock className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <h2 className="font-semibold text-lg mb-2">No orders yet</h2>
+              <p className="text-muted-foreground mb-4">Your order history will appear here</p>
+              <Button onClick={() => navigate('/')}>
+                Start ordering
+              </Button>
+            </div>
+          ) : (
+            <div className="lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-4 space-y-3 lg:space-y-0">
+              {mockOrders.map((order) => (
+                <div 
+                  key={order.id}
+                  className="bg-card rounded-lg border border-border p-4"
+                >
+                  {/* Order Header */}
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-semibold">{order.orderNumber}</span>
+                        {getStatusBadge(order.status)}
+                      </div>
+                      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5" />
+                          {formatDate(order.date)} at {formatTime(order.date)}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5" />
-                        {formatDate(order.date)} at {formatTime(order.date)}
-                      </span>
-                    </div>
+                    <span className="font-bold">${order.total.toFixed(2)}</span>
                   </div>
-                  <span className="font-bold">${order.total.toFixed(2)}</span>
-                </div>
 
-                {/* Order Details */}
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
-                  <MapPin className="w-3.5 h-3.5" />
-                  <span>{order.location}</span>
-                  <span className="text-border">•</span>
-                  <span className="capitalize">{order.orderType}</span>
-                </div>
+                  {/* Order Details */}
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
+                    <MapPin className="w-3.5 h-3.5" />
+                    <span>{order.location}</span>
+                    <span className="text-border">•</span>
+                    <span className="capitalize">{order.orderType}</span>
+                  </div>
 
-                {/* Items Summary */}
-                <div className="text-sm text-muted-foreground mb-3 pb-3 border-b border-border">
-                  {order.items.slice(0, 3).map((item, idx) => (
-                    <span key={item.id}>
-                      {item.quantity}x {item.name}
-                      {idx < Math.min(order.items.length, 3) - 1 && ', '}
-                    </span>
-                  ))}
-                  {order.items.length > 3 && ` +${order.items.length - 3} more`}
-                </div>
+                  {/* Items Summary */}
+                  <div className="text-sm text-muted-foreground mb-3 pb-3 border-b border-border">
+                    {order.items.slice(0, 3).map((item, idx) => (
+                      <span key={item.id}>
+                        {item.quantity}x {item.name}
+                        {idx < Math.min(order.items.length, 3) - 1 && ', '}
+                      </span>
+                    ))}
+                    {order.items.length > 3 && ` +${order.items.length - 3} more`}
+                  </div>
 
-                {/* Actions */}
-                <div className="flex items-center gap-2">
-                  {order.status === 'completed' && (
+                  {/* Actions */}
+                  <div className="flex items-center gap-2">
+                    {order.status === 'completed' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => handleReorder(order)}
+                      >
+                        <RotateCcw className="w-4 h-4 mr-1" />
+                        Reorder
+                      </Button>
+                    )}
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
                       className="flex-1"
-                      onClick={() => handleReorder(order)}
+                      onClick={() => navigate(`/order-tracking?order=${order.id}`)}
                     >
-                      <RotateCcw className="w-4 h-4 mr-1" />
-                      Reorder
+                      View details
+                      <ChevronRight className="w-4 h-4 ml-1" />
                     </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => navigate(`/order-tracking?order=${order.id}`)}
-                  >
-                    View details
-                    <ChevronRight className="w-4 h-4 ml-1" />
-                  </Button>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </main>
-    </div>
+              ))}
+            </div>
+          )}
+        </main>
+      </div>
+    </PageTransition>
   );
 };
 
