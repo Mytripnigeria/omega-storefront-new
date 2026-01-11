@@ -15,7 +15,7 @@ export const BottomNav = ({ onCartClick, onWalletClick, onSignInClick, isLoggedI
   const { itemCount, subtotal, user } = useCart();
 
   return (
-    <div className="fixed bottom-0 inset-x-0 z-40 safe-bottom lg:hidden">
+    <div className="fixed bottom-0 inset-x-0 z-40 safe-bottom">
       <div className="pt-4 pb-4 px-4">
         <div className="max-w-lg mx-auto">
           <div className="flex items-center gap-2">

@@ -80,9 +80,10 @@ export const ItemDetailSheet = ({ item, isOpen, onClose }: ItemDetailSheetProps)
       {/* Sheet */}
       <div 
         className={cn(
-          "fixed inset-x-0 bottom-0 z-50 bg-card rounded-t-3xl shadow-modal transition-transform duration-300 overflow-hidden flex flex-col",
-          "h-[90vh] max-h-[90vh]",
-          isOpen ? "translate-y-0" : "translate-y-full"
+          "fixed z-50 bg-card shadow-modal transition-transform duration-300 overflow-hidden flex flex-col",
+          "inset-x-0 bottom-0 rounded-t-3xl h-[90vh] max-h-[90vh]",
+          "lg:inset-y-4 lg:right-4 lg:left-auto lg:bottom-auto lg:rounded-2xl lg:w-[480px] lg:h-auto lg:max-h-[calc(100vh-2rem)]",
+          isOpen ? "translate-y-0 lg:translate-x-0" : "translate-y-full lg:translate-y-0 lg:translate-x-full"
         )}
       >
         {/* Image Header */}
