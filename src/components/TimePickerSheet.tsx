@@ -106,7 +106,7 @@ export const TimePickerSheet = ({ isOpen, onClose }: TimePickerSheetProps) => {
                   className={cn(
                     "flex flex-col items-center min-w-[60px] py-2 px-3 rounded-xl transition-all",
                     isSelected 
-                      ? "bg-foreground text-background" 
+                      ? "bg-primary text-primary-foreground" 
                       : "bg-secondary hover:bg-secondary/80"
                   )}
                 >
@@ -135,7 +135,7 @@ export const TimePickerSheet = ({ isOpen, onClose }: TimePickerSheetProps) => {
                 className={cn(
                   "w-full flex items-center justify-between p-4 rounded-xl border transition-all",
                   selected === slot.id 
-                    ? "border-foreground bg-secondary" 
+                    ? "border-primary bg-primary/10" 
                     : "border-border hover:bg-secondary/50"
                 )}
               >
@@ -144,8 +144,8 @@ export const TimePickerSheet = ({ isOpen, onClose }: TimePickerSheetProps) => {
                   <p className="text-sm text-muted-foreground">{slot.sublabel}</p>
                 </div>
                 {selected === slot.id && (
-                  <div className="w-6 h-6 rounded-full bg-foreground flex items-center justify-center">
-                    <Check className="w-4 h-4 text-background" />
+                  <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                    <Check className="w-4 h-4 text-primary-foreground" />
                   </div>
                 )}
               </button>
@@ -157,7 +157,7 @@ export const TimePickerSheet = ({ isOpen, onClose }: TimePickerSheetProps) => {
         <div className="p-4 border-t border-border safe-bottom-pad">
           <button
             onClick={handleConfirm}
-            className="w-full h-12 bg-foreground text-background rounded-full font-semibold"
+            className="w-full h-12 bg-primary text-primary-foreground rounded-full font-semibold"
           >
             Confirm
           </button>

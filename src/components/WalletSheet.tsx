@@ -21,10 +21,10 @@ const mockHistory = [
 ];
 
 const tierColors = {
-  bronze: 'bg-foreground',
-  silver: 'bg-foreground',
-  gold: 'bg-foreground',
-  platinum: 'bg-foreground',
+  bronze: 'bg-primary',
+  silver: 'bg-primary',
+  gold: 'bg-primary',
+  platinum: 'bg-primary',
 };
 
 const tierNextPoints = {
@@ -63,7 +63,7 @@ export const WalletSheet = ({ isOpen, onClose }: WalletSheetProps) => {
   const renderMainView = () => (
     <>
       {/* Wallet Balance Card */}
-      <div className="bg-foreground rounded-2xl p-5 text-background mb-4">
+      <div className="bg-primary rounded-2xl p-5 text-primary-foreground mb-4">
         <div className="flex items-center gap-2 mb-3 opacity-80">
           <Wallet className="w-4 h-4" />
           <span className="text-sm font-medium">Wallet Balance</span>
@@ -72,7 +72,7 @@ export const WalletSheet = ({ isOpen, onClose }: WalletSheetProps) => {
         <Button 
           onClick={() => setView('addFunds')}
           variant="secondary" 
-          className="w-full bg-background/20 hover:bg-background/30 text-background border-0"
+          className="w-full bg-primary-foreground/20 hover:bg-primary-foreground/30 text-primary-foreground border-0"
         >
           Add Funds
           <ChevronRight className="w-4 h-4 ml-1" />
@@ -80,7 +80,7 @@ export const WalletSheet = ({ isOpen, onClose }: WalletSheetProps) => {
       </div>
 
       {/* Points Card */}
-      <div className={cn("rounded-2xl p-5 text-background mb-4", tierColors[user.tier])}>
+      <div className={cn("rounded-2xl p-5 text-primary-foreground mb-4", tierColors[user.tier])}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2 opacity-80">
             <Star className="w-4 h-4" />
@@ -96,9 +96,9 @@ export const WalletSheet = ({ isOpen, onClose }: WalletSheetProps) => {
               <span>{pointsToNext} pts to {nextTier}</span>
               <span>{Math.round(progress)}%</span>
             </div>
-            <div className="h-1.5 bg-background/20 rounded-full overflow-hidden">
+            <div className="h-1.5 bg-primary-foreground/20 rounded-full overflow-hidden">
               <div 
-                className="h-full bg-background rounded-full transition-all duration-500"
+                className="h-full bg-primary-foreground rounded-full transition-all duration-500"
                 style={{ width: `${progress}%` }}
               />
             </div>
