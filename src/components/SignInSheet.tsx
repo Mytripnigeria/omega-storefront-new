@@ -48,7 +48,7 @@ export const SignInSheet = ({ isOpen, onClose }: SignInSheetProps) => {
           </button>
         </div>
 
-        <div className="px-5 pb-6 safe-bottom">
+        <div className="px-5 safe-bottom-pad">
           {!method ? (
             <div className="space-y-3">
               <p className="text-muted-foreground text-sm mb-4">

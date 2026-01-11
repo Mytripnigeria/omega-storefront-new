@@ -87,7 +87,7 @@ export const TimePickerSheet = ({ isOpen, onClose }: TimePickerSheetProps) => {
         </div>
 
         {/* Confirm Button */}
-        <div className="p-4 border-t border-border safe-bottom">
+        <div className="p-4 border-t border-border safe-bottom-pad">
           <button
             onClick={handleConfirm}
             className="w-full h-12 bg-foreground text-background rounded-full font-semibold"

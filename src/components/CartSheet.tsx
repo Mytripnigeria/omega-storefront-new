@@ -137,7 +137,7 @@ export const CartSheet = ({ isOpen, onClose, onCheckout }: CartSheetProps) => {
 
         {/* Bottom Section */}
         {items.length > 0 && (
-          <div className="flex-shrink-0 p-5 pt-3 border-t border-border space-y-3 pb-8">
+          <div className="flex-shrink-0 p-5 pt-3 border-t border-border space-y-3 safe-bottom-pad">
             {/* Points Banner */}
             <div className="flex items-center gap-2 px-3 py-2.5 bg-secondary rounded-xl">
               <Star className="w-4 h-4" />

@@ -196,7 +196,7 @@ export const ItemDetailSheet = ({ item, isOpen, onClose }: ItemDetailSheetProps)
         </div>
 
         {/* Bottom Bar */}
-        <div className="flex-shrink-0 p-4 pb-8 border-t border-border bg-card">
+        <div className="flex-shrink-0 p-4 border-t border-border bg-card safe-bottom-pad">
           <div className="flex items-center gap-3">
             {/* Quantity Selector */}
             <div className="flex items-center bg-secondary rounded-full h-11">

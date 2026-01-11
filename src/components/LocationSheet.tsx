@@ -85,7 +85,7 @@ export const LocationSheet = ({ isOpen, onClose }: LocationSheetProps) => {
         </div>
 
         {/* Locations List */}
-        <div className="flex-1 overflow-y-auto px-6 pb-6">
+        <div className="flex-1 overflow-y-auto px-6 safe-bottom-pad">
           {orderType === 'pickup' ? (
             <div className="space-y-3">
               {locations.map(location => (
