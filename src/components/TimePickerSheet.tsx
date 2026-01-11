@@ -68,12 +68,18 @@ export const TimePickerSheet = ({ isOpen, onClose }: TimePickerSheetProps) => {
         onClick={onClose}
       />
 
-      {/* Sheet */}
+      {/* Sheet - Bottom sheet on mobile, centered dialog on desktop */}
       <div 
         className={cn(
-          "fixed inset-x-0 bottom-0 z-50 bg-card rounded-t-3xl shadow-modal transition-transform duration-300 max-h-[80vh] flex flex-col",
-          isOpen ? "translate-y-0" : "translate-y-full"
+          "fixed z-50 bg-card shadow-modal transition-all duration-300 flex flex-col",
+          // Mobile: bottom sheet
+          "inset-x-0 bottom-0 rounded-t-3xl max-h-[80vh]",
+          isOpen ? "translate-y-0" : "translate-y-full",
+          // Desktop: centered dialog
+          "lg:inset-auto lg:top-1/2 lg:left-1/2 lg:-translate-x-1/2 lg:rounded-2xl lg:w-full lg:max-w-md lg:max-h-[70vh]",
+          isOpen ? "lg:-translate-y-1/2 lg:opacity-100" : "lg:-translate-y-1/2 lg:opacity-0 lg:pointer-events-none"
         )}
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-5 pb-3 border-b border-border">
