@@ -53,7 +53,7 @@ export const BottomNav = ({ onCartClick, onWalletClick, onSignInClick, isLoggedI
               onClick={onCartClick}
               className={cn(
                 "flex-1 h-14 rounded-full font-bold text-base flex items-center justify-between px-6 transition-all shadow-lg",
-                "bg-foreground text-background hover:bg-foreground/90"
+                "bg-primary text-primary-foreground hover:bg-primary/90"
               )}
             >
               <div className="flex items-center gap-2">
