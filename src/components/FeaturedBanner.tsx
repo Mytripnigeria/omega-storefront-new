@@ -55,8 +55,8 @@ const banners: BannerItem[] = [
 
 export const FeaturedBanner = () => {
   return (
-    <div className="px-4 py-4 max-w-7xl mx-auto">
-      <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2 -mx-4 px-4 lg:mx-0 lg:px-0 lg:grid lg:grid-cols-3 lg:overflow-visible">
+    <div className="py-4 max-w-7xl mx-auto">
+      <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2 px-4 lg:px-6 lg:grid lg:grid-cols-3 lg:overflow-visible">
         {banners.map((banner) => (
           <div
             key={banner.id}

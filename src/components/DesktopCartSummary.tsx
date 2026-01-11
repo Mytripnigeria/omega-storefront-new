@@ -15,7 +15,7 @@ export const DesktopCartSummary = ({ onCheckout }: DesktopCartSummaryProps) => {
   } = useCart();
 
   return (
-    <div className="hidden lg:block sticky top-4 h-fit">
+    <div className="hidden lg:block sticky top-20 h-fit">
       <div className="bg-card rounded-2xl border border-border shadow-card overflow-hidden">
         {/* Header */}
         <div className="p-4 border-b border-border">

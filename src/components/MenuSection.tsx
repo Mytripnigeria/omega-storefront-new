@@ -15,12 +15,12 @@ export const MenuSection = ({ categoryId, items, onItemClick, onQuickAdd }: Menu
   if (!category || items.length === 0) return null;
 
   return (
-    <section className="mb-6">
-      <h2 className="text-lg font-bold mb-2 px-4">
+    <section className="mb-8">
+      <h2 className="text-lg font-bold mb-3 px-4 lg:px-0">
         {category.name} {category.emoji}
       </h2>
       
-      <div className="px-4">
+      <div className="px-4 lg:px-0">
         {items.map(item => (
           <MenuItemCard
             key={item.id}
