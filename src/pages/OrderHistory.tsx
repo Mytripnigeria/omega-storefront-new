@@ -150,7 +150,7 @@ const OrderHistory = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-card border-b border-border">
-        <div className="container flex items-center h-14 px-4 gap-4">
+        <div className="max-w-7xl mx-auto flex items-center h-14 px-4 lg:px-6 gap-4">
           <button 
             onClick={() => navigate(-1)}
             className="w-8 h-8 flex items-center justify-center -ml-2"
@@ -161,7 +161,7 @@ const OrderHistory = () => {
         </div>
       </header>
 
-      <main className="container px-4 py-4">
+      <main className="max-w-7xl mx-auto px-4 lg:px-6 py-4">
         {mockOrders.length === 0 ? (
           <div className="text-center py-12">
             <div className="w-16 h-16 rounded-full bg-secondary mx-auto mb-4 flex items-center justify-center">
@@ -174,7 +174,7 @@ const OrderHistory = () => {
             </Button>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-4 space-y-3 lg:space-y-0">
             {mockOrders.map((order) => (
               <div 
                 key={order.id}
