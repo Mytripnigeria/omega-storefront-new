@@ -34,6 +34,7 @@ export const PageTransition = ({ children }: PageTransitionProps) => {
       exit="out"
       variants={pageVariants}
       transition={pageTransition}
+      style={{ overflow: 'visible' }}
     >
       {children}
     </motion.div>
