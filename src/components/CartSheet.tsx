@@ -89,6 +89,15 @@ export const CartSheet = ({ isOpen, onClose, onCheckout }: CartSheetProps) => {
                   />
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-sm truncate">{item.menuItem.name}</h3>
+                    {/* Show selected options */}
+                    {item.selectedOptions && Object.keys(item.selectedOptions).length > 0 && (
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                        {Object.values(item.selectedOptions).flat().join(', ')}
+                      </p>
+                    )}
+                    {item.specialRequest && (
+                      <p className="text-xs text-muted-foreground italic truncate">"{item.specialRequest}"</p>
+                    )}
                     <p className="text-sm font-bold mt-0.5">₦{(item.menuItem.price * item.quantity).toLocaleString()}</p>
                   </div>
                   <div className="flex items-center bg-secondary rounded-full h-8">

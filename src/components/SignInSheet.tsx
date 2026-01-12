@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 interface SignInSheetProps {
   isOpen: boolean;
@@ -10,13 +11,15 @@ interface SignInSheetProps {
 }
 
 export const SignInSheet = ({ isOpen, onClose }: SignInSheetProps) => {
+  const navigate = useNavigate();
   const [method, setMethod] = useState<'phone' | 'email' | null>(null);
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
 
   const handleContinue = () => {
-    // Handle sign in logic
+    // Handle sign in logic - navigate to profile
     onClose();
+    navigate('/profile');
   };
 
   return (
