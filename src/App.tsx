@@ -11,6 +11,8 @@ import Checkout from "./pages/Checkout";
 import OrderTracking from "./pages/OrderTracking";
 import OrderHistory from "./pages/OrderHistory";
 import Profile from "./pages/Profile";
+import PaymentMethods from "./pages/PaymentMethods";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +28,8 @@ const AnimatedRoutes = () => {
         <Route path="/order-tracking" element={<OrderTracking />} />
         <Route path="/order-history" element={<OrderHistory />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/payment-methods" element={<PaymentMethods />} />
+        <Route path="/settings" element={<Settings />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>

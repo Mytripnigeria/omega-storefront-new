@@ -89,16 +89,33 @@ export const CartSheet = ({ isOpen, onClose, onCheckout }: CartSheetProps) => {
                   />
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-sm truncate">{item.menuItem.name}</h3>
-                    {/* Show selected options */}
+                    {/* Show selected options as sub-list with prices */}
                     {item.selectedOptions && Object.keys(item.selectedOptions).length > 0 && (
-                      <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                        {Object.values(item.selectedOptions).flat().join(', ')}
-                      </p>
+                      <div className="mt-1 space-y-0.5">
+                        {Object.entries(item.selectedOptions).map(([optionId, choices]) => {
+                          const option = item.menuItem.options?.find(o => o.id === optionId);
+                          return choices.map((choiceId) => {
+                            const choice = option?.choices.find(c => c.id === choiceId);
+                            if (!choice) return null;
+                            return (
+                              <div key={`${optionId}-${choiceId}`} className="flex items-center justify-between text-xs text-muted-foreground">
+                                <span className="flex items-center gap-1">
+                                  <span className="w-1 h-1 rounded-full bg-muted-foreground"></span>
+                                  {choice.name}
+                                </span>
+                                {choice.price && choice.price > 0 && (
+                                  <span>+₦{choice.price.toLocaleString()}</span>
+                                )}
+                              </div>
+                            );
+                          });
+                        })}
+                      </div>
                     )}
                     {item.specialRequest && (
-                      <p className="text-xs text-muted-foreground italic truncate">"{item.specialRequest}"</p>
+                      <p className="text-xs text-muted-foreground italic mt-1 truncate">"{item.specialRequest}"</p>
                     )}
-                    <p className="text-sm font-bold mt-0.5">₦{(item.menuItem.price * item.quantity).toLocaleString()}</p>
+                    <p className="text-sm font-bold mt-1">₦{(item.menuItem.price * item.quantity).toLocaleString()}</p>
                   </div>
                   <div className="flex items-center bg-secondary rounded-full h-8">
                     <button
