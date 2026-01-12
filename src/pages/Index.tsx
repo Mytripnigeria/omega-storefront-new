@@ -39,6 +39,7 @@ const Index = () => {
   const [isSignInOpen, setIsSignInOpen] = useState(false);
 
   const sectionRefs = useRef<{ [key: string]: HTMLElement | null }>({});
+  const observerRef = useRef<IntersectionObserver | null>(null);
 
   const groupedItems = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -63,27 +64,31 @@ const Index = () => {
     return groups;
   }, [searchQuery]);
 
-  // Intersection observer for sticky category scroll
+  // Keep activeCategory in sync with scroll position (even when sections mount later)
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             const categoryId = entry.target.getAttribute('data-category');
-            if (categoryId) {
-              setActiveCategory(categoryId);
-            }
+            if (categoryId) setActiveCategory(categoryId);
           }
         });
       },
       { rootMargin: '-100px 0px -70% 0px', threshold: 0 }
     );
 
+    observerRef.current = observer;
+
+    // Observe anything already mounted
     Object.values(sectionRefs.current).forEach((ref) => {
       if (ref) observer.observe(ref);
     });
 
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      observerRef.current = null;
+    };
   }, []);
 
   const handleCategoryChange = (categoryId: string) => {
@@ -164,7 +169,12 @@ const Index = () => {
                 return (
                   <section
                     key={category.id}
-                    ref={(el) => (sectionRefs.current[category.id] = el)}
+                    ref={(el) => {
+                      const prev = sectionRefs.current[category.id];
+                      if (prev && observerRef.current) observerRef.current.unobserve(prev);
+                      sectionRefs.current[category.id] = el;
+                      if (el && observerRef.current) observerRef.current.observe(el);
+                    }}
                     data-category={category.id}
                     className="mb-6"
                   >
