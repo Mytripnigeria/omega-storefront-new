@@ -5,12 +5,17 @@ import { PageTransition } from '@/components/PageTransition';
 import { OrderHistorySkeleton } from '@/components/skeletons';
 import { useSkeletonLoader } from '@/hooks/useSkeletonLoader';
 
+interface OrderItemOption {
+  name: string;
+  price?: number;
+}
+
 interface OrderItem {
   id: string;
   name: string;
   quantity: number;
   price: number;
-  selectedOptions?: string[];
+  selectedOptions?: OrderItemOption[];
   specialRequest?: string;
 }
 
@@ -34,8 +39,8 @@ const mockOrders: Order[] = [
     date: '2024-01-08T14:30:00',
     status: 'completed',
     items: [
-      { id: '1', name: 'Signature Burger', quantity: 2, price: 12.99, selectedOptions: ['Medium Rare', 'Extra Cheese', 'No Onions'] },
-      { id: '2', name: 'Truffle Fries', quantity: 1, price: 7.99, selectedOptions: ['Large'] },
+      { id: '1', name: 'Signature Burger', quantity: 2, price: 12.99, selectedOptions: [{ name: 'Medium Rare' }, { name: 'Extra Cheese', price: 2.00 }, { name: 'No Onions' }] },
+      { id: '2', name: 'Truffle Fries', quantity: 1, price: 7.99, selectedOptions: [{ name: 'Large', price: 1.50 }] },
       { id: '3', name: 'Fresh Lemonade', quantity: 2, price: 4.99 },
     ],
     subtotal: 43.95,
@@ -50,8 +55,8 @@ const mockOrders: Order[] = [
     date: '2024-01-05T12:15:00',
     status: 'completed',
     items: [
-      { id: '1', name: 'Birria Ramen', quantity: 1, price: 15.99, selectedOptions: ['Extra Spicy', 'Add Egg'], specialRequest: 'No green onions please' },
-      { id: '2', name: 'Mango Smoothie', quantity: 1, price: 5.99, selectedOptions: ['No Ice'] },
+      { id: '1', name: 'Birria Ramen', quantity: 1, price: 15.99, selectedOptions: [{ name: 'Extra Spicy' }, { name: 'Add Egg', price: 1.50 }], specialRequest: 'No green onions please' },
+      { id: '2', name: 'Mango Smoothie', quantity: 1, price: 5.99, selectedOptions: [{ name: 'No Ice' }] },
     ],
     subtotal: 21.98,
     deliveryFee: 0,
@@ -65,9 +70,9 @@ const mockOrders: Order[] = [
     date: '2024-01-02T19:45:00',
     status: 'completed',
     items: [
-      { id: '1', name: 'Crispy Chicken Wings', quantity: 2, price: 10.99, selectedOptions: ['Buffalo Sauce', '12 pieces'] },
-      { id: '2', name: 'Loaded Nachos', quantity: 1, price: 9.99, selectedOptions: ['Add Jalapeños'] },
-      { id: '3', name: 'Iced Coffee', quantity: 3, price: 4.49, selectedOptions: ['Oat Milk'] },
+      { id: '1', name: 'Crispy Chicken Wings', quantity: 2, price: 10.99, selectedOptions: [{ name: 'Buffalo Sauce' }, { name: '12 pieces', price: 3.00 }] },
+      { id: '2', name: 'Loaded Nachos', quantity: 1, price: 9.99, selectedOptions: [{ name: 'Add Jalapeños', price: 0.50 }] },
+      { id: '3', name: 'Iced Coffee', quantity: 3, price: 4.49, selectedOptions: [{ name: 'Oat Milk', price: 0.75 }] },
     ],
     subtotal: 45.44,
     deliveryFee: 3.99,
@@ -81,7 +86,7 @@ const mockOrders: Order[] = [
     date: '2023-12-28T11:30:00',
     status: 'cancelled',
     items: [
-      { id: '1', name: 'Fish & Chips', quantity: 1, price: 14.99, selectedOptions: ['Tartar Sauce'] },
+      { id: '1', name: 'Fish & Chips', quantity: 1, price: 14.99, selectedOptions: [{ name: 'Tartar Sauce' }] },
     ],
     subtotal: 14.99,
     deliveryFee: 0,
@@ -95,9 +100,9 @@ const mockOrders: Order[] = [
     date: '2023-12-20T18:00:00',
     status: 'completed',
     items: [
-      { id: '1', name: 'Chocolate Lava Cake', quantity: 2, price: 7.99, selectedOptions: ['Extra Sauce'] },
+      { id: '1', name: 'Chocolate Lava Cake', quantity: 2, price: 7.99, selectedOptions: [{ name: 'Extra Sauce', price: 1.00 }] },
       { id: '2', name: 'Tiramisu', quantity: 1, price: 7.99 },
-      { id: '3', name: 'Hot Chocolate', quantity: 2, price: 4.49, selectedOptions: ['Whipped Cream', 'Marshmallows'] },
+      { id: '3', name: 'Hot Chocolate', quantity: 2, price: 4.49, selectedOptions: [{ name: 'Whipped Cream', price: 0.50 }, { name: 'Marshmallows', price: 0.50 }] },
     ],
     subtotal: 32.95,
     deliveryFee: 3.99,
@@ -221,19 +226,32 @@ const OrderHistory = () => {
                   </div>
 
                   {/* Items Summary */}
-                  <div className="text-sm mb-3 pb-3 border-b border-border space-y-1">
+                  <div className="text-sm mb-3 pb-3 border-b border-border space-y-2">
                     {order.items.slice(0, 3).map((item) => (
                       <div key={item.id}>
-                        <span className="text-muted-foreground">
-                          {item.quantity}x {item.name}
-                        </span>
+                        <div className="flex items-center justify-between">
+                          <span className="text-foreground font-medium">
+                            {item.quantity}x {item.name}
+                          </span>
+                          <span className="text-muted-foreground">${item.price.toFixed(2)}</span>
+                        </div>
                         {item.selectedOptions && item.selectedOptions.length > 0 && (
-                          <p className="text-xs text-muted-foreground/70 ml-4">
-                            {item.selectedOptions.join(', ')}
-                          </p>
+                          <div className="ml-4 mt-0.5 space-y-0.5">
+                            {item.selectedOptions.map((option, idx) => (
+                              <div key={idx} className="flex items-center justify-between text-xs text-muted-foreground">
+                                <span className="flex items-center gap-1">
+                                  <span className="w-1 h-1 rounded-full bg-muted-foreground"></span>
+                                  {option.name}
+                                </span>
+                                {option.price && option.price > 0 && (
+                                  <span>+${option.price.toFixed(2)}</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
                         )}
                         {item.specialRequest && (
-                          <p className="text-xs text-muted-foreground/70 italic ml-4">"{item.specialRequest}"</p>
+                          <p className="text-xs text-muted-foreground/70 italic ml-4 mt-0.5">"{item.specialRequest}"</p>
                         )}
                       </div>
                     ))}

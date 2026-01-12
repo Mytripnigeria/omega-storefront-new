@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { ArrowLeft, User, CreditCard, History, Settings, LogOut, ChevronRight, Star, Copy, Share2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '@/context/CartContext';
@@ -5,14 +6,24 @@ import { Button } from '@/components/ui/button';
 import { PageTransition } from '@/components/PageTransition';
 import { ProfileSkeleton } from '@/components/skeletons';
 import { useSkeletonLoader } from '@/hooks/useSkeletonLoader';
+import { EditProfileSheet } from '@/components/EditProfileSheet';
 import { toast } from 'sonner';
 
 const Profile = () => {
   const navigate = useNavigate();
   const { user } = useCart();
   const isLoading = useSkeletonLoader(1500);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  
+  const [profileData, setProfileData] = useState({
+    name: 'Adaeze Okonkwo',
+    email: 'adaeze.okonkwo@gmail.com',
+    phone: '+234 812 345 6789',
+    address: '15 Admiralty Way, Lekki Phase 1, Lagos',
+    dateOfBirth: '1992-06-15',
+  });
 
-  const referralLink = `https://toasty.com/ref/${user.email?.split('@')[0] || 'user123'}`;
+  const referralLink = `https://toasty.com/ref/${profileData.email?.split('@')[0] || 'user123'}`;
 
   const handleCopyReferral = () => {
     navigator.clipboard.writeText(referralLink);
@@ -37,9 +48,9 @@ const Profile = () => {
 
   const profileMenuItems = [
     { icon: History, label: 'Order History', onClick: () => navigate('/order-history') },
-    { icon: CreditCard, label: 'Payment Methods', onClick: () => {} },
-    { icon: Star, label: 'Rewards & Points', onClick: () => {} },
-    { icon: Settings, label: 'Settings', onClick: () => {} },
+    { icon: CreditCard, label: 'Payment Methods', onClick: () => navigate('/payment-methods') },
+    { icon: Star, label: 'Rewards & Points', onClick: () => toast.info('Rewards page coming soon') },
+    { icon: Settings, label: 'Settings', onClick: () => navigate('/settings') },
   ];
 
   if (isLoading) {
@@ -74,10 +85,11 @@ const Profile = () => {
                   <User className="w-6 h-6 lg:w-8 lg:h-8 text-primary" />
                 </div>
                 <div className="flex-1">
-                  <h2 className="font-bold lg:text-xl">{user.name}</h2>
-                  <p className="text-sm text-muted-foreground">{user.email}</p>
+                  <h2 className="font-bold lg:text-xl">{profileData.name}</h2>
+                  <p className="text-sm text-muted-foreground">{profileData.email}</p>
+                  <p className="text-xs text-muted-foreground">{profileData.phone}</p>
                 </div>
-                <Button variant="outline" size="sm" className="rounded-full">
+                <Button variant="outline" size="sm" className="rounded-full" onClick={() => setIsEditProfileOpen(true)}>
                   Edit
                 </Button>
               </div>
@@ -142,6 +154,12 @@ const Profile = () => {
           </div>
         </div>
       </div>
+      <EditProfileSheet
+        isOpen={isEditProfileOpen}
+        onClose={() => setIsEditProfileOpen(false)}
+        userData={profileData}
+        onSave={setProfileData}
+      />
     </PageTransition>
   );
 };
