@@ -10,6 +10,8 @@ interface OrderItem {
   name: string;
   quantity: number;
   price: number;
+  selectedOptions?: string[];
+  specialRequest?: string;
 }
 
 interface Order {
@@ -32,8 +34,8 @@ const mockOrders: Order[] = [
     date: '2024-01-08T14:30:00',
     status: 'completed',
     items: [
-      { id: '1', name: 'Signature Burger', quantity: 2, price: 12.99 },
-      { id: '2', name: 'Truffle Fries', quantity: 1, price: 7.99 },
+      { id: '1', name: 'Signature Burger', quantity: 2, price: 12.99, selectedOptions: ['Medium Rare', 'Extra Cheese', 'No Onions'] },
+      { id: '2', name: 'Truffle Fries', quantity: 1, price: 7.99, selectedOptions: ['Large'] },
       { id: '3', name: 'Fresh Lemonade', quantity: 2, price: 4.99 },
     ],
     subtotal: 43.95,
@@ -48,8 +50,8 @@ const mockOrders: Order[] = [
     date: '2024-01-05T12:15:00',
     status: 'completed',
     items: [
-      { id: '1', name: 'Birria Ramen', quantity: 1, price: 15.99 },
-      { id: '2', name: 'Mango Smoothie', quantity: 1, price: 5.99 },
+      { id: '1', name: 'Birria Ramen', quantity: 1, price: 15.99, selectedOptions: ['Extra Spicy', 'Add Egg'], specialRequest: 'No green onions please' },
+      { id: '2', name: 'Mango Smoothie', quantity: 1, price: 5.99, selectedOptions: ['No Ice'] },
     ],
     subtotal: 21.98,
     deliveryFee: 0,
@@ -63,9 +65,9 @@ const mockOrders: Order[] = [
     date: '2024-01-02T19:45:00',
     status: 'completed',
     items: [
-      { id: '1', name: 'Crispy Chicken Wings', quantity: 2, price: 10.99 },
-      { id: '2', name: 'Loaded Nachos', quantity: 1, price: 9.99 },
-      { id: '3', name: 'Iced Coffee', quantity: 3, price: 4.49 },
+      { id: '1', name: 'Crispy Chicken Wings', quantity: 2, price: 10.99, selectedOptions: ['Buffalo Sauce', '12 pieces'] },
+      { id: '2', name: 'Loaded Nachos', quantity: 1, price: 9.99, selectedOptions: ['Add Jalapeños'] },
+      { id: '3', name: 'Iced Coffee', quantity: 3, price: 4.49, selectedOptions: ['Oat Milk'] },
     ],
     subtotal: 45.44,
     deliveryFee: 3.99,
@@ -79,7 +81,7 @@ const mockOrders: Order[] = [
     date: '2023-12-28T11:30:00',
     status: 'cancelled',
     items: [
-      { id: '1', name: 'Fish & Chips', quantity: 1, price: 14.99 },
+      { id: '1', name: 'Fish & Chips', quantity: 1, price: 14.99, selectedOptions: ['Tartar Sauce'] },
     ],
     subtotal: 14.99,
     deliveryFee: 0,
@@ -93,9 +95,9 @@ const mockOrders: Order[] = [
     date: '2023-12-20T18:00:00',
     status: 'completed',
     items: [
-      { id: '1', name: 'Chocolate Lava Cake', quantity: 2, price: 7.99 },
+      { id: '1', name: 'Chocolate Lava Cake', quantity: 2, price: 7.99, selectedOptions: ['Extra Sauce'] },
       { id: '2', name: 'Tiramisu', quantity: 1, price: 7.99 },
-      { id: '3', name: 'Hot Chocolate', quantity: 2, price: 4.49 },
+      { id: '3', name: 'Hot Chocolate', quantity: 2, price: 4.49, selectedOptions: ['Whipped Cream', 'Marshmallows'] },
     ],
     subtotal: 32.95,
     deliveryFee: 3.99,
@@ -219,14 +221,25 @@ const OrderHistory = () => {
                   </div>
 
                   {/* Items Summary */}
-                  <div className="text-sm text-muted-foreground mb-3 pb-3 border-b border-border">
-                    {order.items.slice(0, 3).map((item, idx) => (
-                      <span key={item.id}>
-                        {item.quantity}x {item.name}
-                        {idx < Math.min(order.items.length, 3) - 1 && ', '}
-                      </span>
+                  <div className="text-sm mb-3 pb-3 border-b border-border space-y-1">
+                    {order.items.slice(0, 3).map((item) => (
+                      <div key={item.id}>
+                        <span className="text-muted-foreground">
+                          {item.quantity}x {item.name}
+                        </span>
+                        {item.selectedOptions && item.selectedOptions.length > 0 && (
+                          <p className="text-xs text-muted-foreground/70 ml-4">
+                            {item.selectedOptions.join(', ')}
+                          </p>
+                        )}
+                        {item.specialRequest && (
+                          <p className="text-xs text-muted-foreground/70 italic ml-4">"{item.specialRequest}"</p>
+                        )}
+                      </div>
                     ))}
-                    {order.items.length > 3 && ` +${order.items.length - 3} more`}
+                    {order.items.length > 3 && (
+                      <span className="text-muted-foreground">+{order.items.length - 3} more items</span>
+                    )}
                   </div>
 
                   {/* Actions */}

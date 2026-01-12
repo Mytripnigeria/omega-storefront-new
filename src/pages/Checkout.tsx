@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, MapPin, Clock, Ticket, ShoppingCart, ChevronRight, CreditCard, Wallet, Star, Check } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, Ticket, ShoppingCart, ChevronRight, CreditCard, Wallet, Star, Check, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '@/context/CartContext';
 import { Button } from '@/components/ui/button';
@@ -30,8 +30,13 @@ const Checkout = () => {
 
   const [tipPercent, setTipPercent] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card');
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number } | null>(null);
+  const [showCouponInput, setShowCouponInput] = useState(false);
+  
   const tipAmount = subtotal * (tipPercent / 100);
-  const finalTotal = total + tipAmount;
+  const couponDiscount = appliedCoupon?.discount || 0;
+  const finalTotal = total + tipAmount - couponDiscount;
 
   const [formData, setFormData] = useState({
     phone: '',
@@ -46,6 +51,32 @@ const Checkout = () => {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleApplyCoupon = () => {
+    if (!couponCode.trim()) return;
+    
+    // Mock coupon validation - in a real app this would call an API
+    const validCoupons: Record<string, number> = {
+      'SAVE10': 1000,
+      'WELCOME': 500,
+      'JOLLOF20': 2000,
+    };
+    
+    const upperCode = couponCode.toUpperCase().trim();
+    if (validCoupons[upperCode]) {
+      setAppliedCoupon({ code: upperCode, discount: validCoupons[upperCode] });
+      setShowCouponInput(false);
+      setCouponCode('');
+      toast.success(`Coupon applied! You save ₦${validCoupons[upperCode].toLocaleString()}`);
+    } else {
+      toast.error('Invalid coupon code');
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    toast.success('Coupon removed');
   };
 
   const handlePlaceOrder = () => {
@@ -123,13 +154,55 @@ const Checkout = () => {
                 </div>
 
                 <div className="border-t border-border">
-                  <button className="flex items-center justify-between w-full p-4 hover:bg-secondary/50 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <Ticket className="w-4 h-4 text-muted-foreground" />
-                      <span className="font-medium text-sm">Add coupon</span>
+                  {appliedCoupon ? (
+                    <div className="flex items-center justify-between p-4">
+                      <div className="flex items-center gap-3">
+                        <Ticket className="w-4 h-4 text-success" />
+                        <div>
+                          <span className="font-medium text-sm text-success">{appliedCoupon.code}</span>
+                          <p className="text-xs text-muted-foreground">-₦{appliedCoupon.discount.toLocaleString()} applied</p>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={handleRemoveCoupon}
+                        className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center hover:bg-muted transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                  </button>
+                  ) : showCouponInput ? (
+                    <div className="p-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Input
+                          placeholder="Enter coupon code"
+                          value={couponCode}
+                          onChange={(e) => setCouponCode(e.target.value)}
+                          className="h-10 flex-1"
+                          onKeyDown={(e) => e.key === 'Enter' && handleApplyCoupon()}
+                        />
+                        <Button onClick={handleApplyCoupon} size="sm" className="h-10">
+                          Apply
+                        </Button>
+                      </div>
+                      <button 
+                        onClick={() => { setShowCouponInput(false); setCouponCode(''); }}
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button 
+                      onClick={() => setShowCouponInput(true)}
+                      className="flex items-center justify-between w-full p-4 hover:bg-secondary/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Ticket className="w-4 h-4 text-muted-foreground" />
+                        <span className="font-medium text-sm">Add coupon</span>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                    </button>
+                  )}
                 </div>
 
                 <div className="border-t border-border">
@@ -378,6 +451,12 @@ const Checkout = () => {
                       <span>₦{tipAmount.toLocaleString()}</span>
                     </div>
                   )}
+                  {appliedCoupon && (
+                    <div className="flex justify-between text-sm text-success">
+                      <span>Coupon ({appliedCoupon.code})</span>
+                      <span>-₦{appliedCoupon.discount.toLocaleString()}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between font-bold pt-2 border-t border-border">
                     <span>Total</span>
                     <span>₦{finalTotal.toLocaleString()}</span>
@@ -423,6 +502,12 @@ const Checkout = () => {
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Tip</span>
                   <span>₦{tipAmount.toLocaleString()}</span>
+                </div>
+              )}
+              {appliedCoupon && (
+                <div className="flex justify-between text-sm text-success">
+                  <span>Coupon ({appliedCoupon.code})</span>
+                  <span>-₦{appliedCoupon.discount.toLocaleString()}</span>
                 </div>
               )}
               <div className="flex justify-between font-bold pt-2 border-t border-border">
