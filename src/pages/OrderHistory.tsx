@@ -1,9 +1,13 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Clock, MapPin, RotateCcw, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Clock, MapPin, RotateCcw, ChevronRight, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PageTransition } from '@/components/PageTransition';
 import { OrderHistorySkeleton } from '@/components/skeletons';
+import { OrderReviewSheet } from '@/components/OrderReviewSheet';
 import { useSkeletonLoader } from '@/hooks/useSkeletonLoader';
+import { useHaptics } from '@/hooks/useHaptics';
+import { toast } from 'sonner';
 
 interface OrderItemOption {
   name: string;
@@ -30,6 +34,7 @@ interface Order {
   total: number;
   location: string;
   orderType: 'pickup' | 'delivery';
+  rating?: number;
 }
 
 const mockOrders: Order[] = [
@@ -115,6 +120,10 @@ const mockOrders: Order[] = [
 const OrderHistory = () => {
   const navigate = useNavigate();
   const isLoading = useSkeletonLoader(1500);
+  const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [selectedOrderForReview, setSelectedOrderForReview] = useState<Order | null>(null);
+  const [orders, setOrders] = useState(mockOrders);
+  const { triggerHaptic } = useHaptics();
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -153,8 +162,23 @@ const OrderHistory = () => {
   };
 
   const handleReorder = (order: Order) => {
-    // In a real app, this would add items to cart
+    triggerHaptic('medium');
     navigate('/');
+  };
+
+  const handleOpenReview = (order: Order) => {
+    triggerHaptic('selection');
+    setSelectedOrderForReview(order);
+    setIsReviewOpen(true);
+  };
+
+  const handleReviewSubmit = (rating: number, review: string) => {
+    if (selectedOrderForReview) {
+      setOrders(prev => prev.map(o => 
+        o.id === selectedOrderForReview.id ? { ...o, rating } : o
+      ));
+      toast.success(`Thanks for your ${rating}-star review!`);
+    }
   };
 
   if (isLoading) {
@@ -195,7 +219,7 @@ const OrderHistory = () => {
             </div>
           ) : (
             <div className="lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-4 space-y-3 lg:space-y-0">
-              {mockOrders.map((order) => (
+              {orders.map((order) => (
                 <div 
                   key={order.id}
                   className="bg-card rounded-lg border border-border p-4"
@@ -206,6 +230,12 @@ const OrderHistory = () => {
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-semibold">{order.orderNumber}</span>
                         {getStatusBadge(order.status)}
+                        {order.rating && (
+                          <span className="flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-warning/10 text-warning text-xs font-medium">
+                            <Star className="w-3 h-3 fill-current" />
+                            {order.rating}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-3 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1">
@@ -263,15 +293,28 @@ const OrderHistory = () => {
                   {/* Actions */}
                   <div className="flex items-center gap-2">
                     {order.status === 'completed' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1"
-                        onClick={() => handleReorder(order)}
-                      >
-                        <RotateCcw className="w-4 h-4 mr-1" />
-                        Reorder
-                      </Button>
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => handleReorder(order)}
+                        >
+                          <RotateCcw className="w-4 h-4 mr-1" />
+                          Reorder
+                        </Button>
+                        {!order.rating && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => handleOpenReview(order)}
+                          >
+                            <Star className="w-4 h-4 mr-1" />
+                            Review
+                          </Button>
+                        )}
+                      </>
                     )}
                     <Button
                       variant="ghost"
@@ -289,6 +332,14 @@ const OrderHistory = () => {
           )}
         </main>
       </div>
+
+      {/* Review Sheet */}
+      <OrderReviewSheet
+        isOpen={isReviewOpen}
+        onClose={() => setIsReviewOpen(false)}
+        onSubmit={handleReviewSubmit}
+        orderId={selectedOrderForReview?.orderNumber}
+      />
     </PageTransition>
   );
 };

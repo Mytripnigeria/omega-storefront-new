@@ -37,10 +37,9 @@ const OrderTracking = () => {
         setEstimatedTime(prev => Math.max(0, prev - 8));
         triggerHaptic('light');
         
-        // Show review sheet when delivered
+        // Show review sheet when delivered (optional prompt)
         if (stepOrder[currentIndex] === 'delivered') {
           triggerHaptic('success');
-          setTimeout(() => setIsReviewOpen(true), 1000);
         }
       } else {
         clearInterval(interval);
