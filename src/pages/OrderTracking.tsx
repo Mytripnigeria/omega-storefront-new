@@ -3,7 +3,10 @@ import { ArrowLeft, MapPin, Clock, Phone, CheckCircle2, Circle, ChefHat, Package
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { PageTransition } from '@/components/PageTransition';
+import { OrderReviewSheet } from '@/components/OrderReviewSheet';
+import { useHaptics } from '@/hooks/useHaptics';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 type OrderStep = 'confirmed' | 'preparing' | 'ready' | 'out-for-delivery' | 'delivered';
 
@@ -19,6 +22,8 @@ const OrderTracking = () => {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState<OrderStep>('confirmed');
   const [estimatedTime, setEstimatedTime] = useState(25);
+  const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const { triggerHaptic } = useHaptics();
 
   // Simulate order progress
   useEffect(() => {
@@ -30,13 +35,24 @@ const OrderTracking = () => {
       if (currentIndex < stepOrder.length) {
         setCurrentStep(stepOrder[currentIndex]);
         setEstimatedTime(prev => Math.max(0, prev - 8));
+        triggerHaptic('light');
+        
+        // Show review sheet when delivered
+        if (stepOrder[currentIndex] === 'delivered') {
+          triggerHaptic('success');
+          setTimeout(() => setIsReviewOpen(true), 1000);
+        }
       } else {
         clearInterval(interval);
       }
     }, 5000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [triggerHaptic]);
+
+  const handleReviewSubmit = (rating: number, review: string) => {
+    toast.success(`Thanks for your ${rating}-star review!`);
+  };
 
   const currentStepIndex = steps.findIndex(s => s.id === currentStep);
 
@@ -184,6 +200,14 @@ const OrderTracking = () => {
           </div>
         </div>
       </div>
+
+      {/* Review Sheet */}
+      <OrderReviewSheet
+        isOpen={isReviewOpen}
+        onClose={() => setIsReviewOpen(false)}
+        onSubmit={handleReviewSubmit}
+        orderId="ORD-2024-001"
+      />
     </PageTransition>
   );
 };

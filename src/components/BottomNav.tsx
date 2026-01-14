@@ -1,7 +1,9 @@
 import { ShoppingCart, User, Star, ClipboardList } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '@/context/CartContext';
+import { useHaptics } from '@/hooks/useHaptics';
 import { cn } from '@/lib/utils';
+import { motion } from 'framer-motion';
 
 interface BottomNavProps {
   onCartClick: () => void;
@@ -13,6 +15,17 @@ interface BottomNavProps {
 export const BottomNav = ({ onCartClick, onWalletClick, onSignInClick, isLoggedIn }: BottomNavProps) => {
   const navigate = useNavigate();
   const { itemCount, subtotal, user } = useCart();
+  const { triggerHaptic } = useHaptics();
+
+  const handleCartClick = () => {
+    triggerHaptic('medium');
+    onCartClick();
+  };
+
+  const handleNavClick = (action: () => void) => {
+    triggerHaptic('selection');
+    action();
+  };
 
   return (
     <div className="fixed bottom-0 inset-x-0 z-40 safe-bottom">
@@ -21,9 +34,11 @@ export const BottomNav = ({ onCartClick, onWalletClick, onSignInClick, isLoggedI
           <div className="flex items-center gap-2">
             {/* Icon Buttons */}
             <div className="flex items-center gap-1 bg-card rounded-full p-1 border border-border shadow-card">
-              <button
-                onClick={onWalletClick}
+              <motion.button
+                onClick={() => handleNavClick(onWalletClick)}
                 className="relative w-11 h-11 rounded-full flex items-center justify-center hover:bg-secondary transition-colors"
+                whileTap={{ scale: 0.9 }}
+                transition={{ duration: 0.1 }}
               >
                 <Star className="w-5 h-5" />
                 {user.loyaltyPoints > 0 && (
@@ -31,30 +46,37 @@ export const BottomNav = ({ onCartClick, onWalletClick, onSignInClick, isLoggedI
                     {user.loyaltyPoints > 999 ? '1k' : user.loyaltyPoints}
                   </span>
                 )}
-              </button>
+              </motion.button>
               
-              <button
-                onClick={() => navigate('/order-history')}
+              <motion.button
+                onClick={() => handleNavClick(() => navigate('/order-history'))}
                 className="w-11 h-11 rounded-full flex items-center justify-center hover:bg-secondary transition-colors"
+                whileTap={{ scale: 0.9 }}
+                transition={{ duration: 0.1 }}
               >
                 <ClipboardList className="w-5 h-5" />
-              </button>
+              </motion.button>
               
-              <button
-                onClick={isLoggedIn ? () => navigate('/profile') : onSignInClick}
+              <motion.button
+                onClick={() => handleNavClick(isLoggedIn ? () => navigate('/profile') : onSignInClick)}
                 className="w-11 h-11 rounded-full flex items-center justify-center hover:bg-secondary transition-colors"
+                whileTap={{ scale: 0.9 }}
+                transition={{ duration: 0.1 }}
               >
                 <User className="w-5 h-5" />
-              </button>
+              </motion.button>
             </div>
 
             {/* Cart Button */}
-            <button
-              onClick={onCartClick}
+            <motion.button
+              onClick={handleCartClick}
               className={cn(
                 "flex-1 h-14 rounded-full font-bold text-base flex items-center justify-between px-6 transition-all shadow-lg",
                 "bg-primary text-primary-foreground hover:bg-primary/90"
               )}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              transition={{ duration: 0.1 }}
             >
               <div className="flex items-center gap-2">
                 <ShoppingCart className="w-5 h-5" />
@@ -63,7 +85,7 @@ export const BottomNav = ({ onCartClick, onWalletClick, onSignInClick, isLoggedI
               {itemCount > 0 && (
                 <span>₦{subtotal.toLocaleString()}</span>
               )}
-            </button>
+            </motion.button>
           </div>
         </div>
       </div>
