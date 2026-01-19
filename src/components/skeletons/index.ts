@@ -4,3 +4,4 @@ export { ProfileSkeleton } from './ProfileSkeleton';
 export { BannerSkeleton } from './BannerSkeleton';
 export { OrderHistorySkeleton } from './OrderHistorySkeleton';
 export { CheckoutSkeleton } from './CheckoutSkeleton';
+export { SkeletonStagger, SkeletonItem, SkeletonFade } from './SkeletonStagger';
