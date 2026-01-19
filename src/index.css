@@ -68,10 +68,16 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', system-ui, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
+    min-height: 100vh;
   }
 
   html {
+    @apply bg-background;
     scroll-behavior: smooth;
+    overscroll-behavior-y: none;
+    height: 100%;
   }
 
   /* Prevent zoom on input focus for iOS */
@@ -87,6 +93,13 @@
   }
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
+  }
+
+  /* iOS/Safari compositing fix for sticky/fixed elements */
+  .ios-layer {
+    transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
   }
 
   .shadow-card {

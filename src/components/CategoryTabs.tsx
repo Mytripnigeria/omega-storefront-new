@@ -63,7 +63,7 @@ export const CategoryTabs = ({
   };
 
   return (
-    <div className="sticky top-0 z-40 bg-background">
+    <div className="sticky top-0 z-40 bg-background ios-layer isolate">
       <div className="max-w-7xl mx-auto">
         <div ref={scrollRef} className="flex items-center gap-2 overflow-x-auto scrollbar-hide px-4 py-3 lg:px-6">
           {/* Search Button / Input (filters menu items) */}
