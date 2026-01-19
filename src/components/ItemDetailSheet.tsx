@@ -82,7 +82,7 @@ export const ItemDetailSheet = ({ item, isOpen, onClose }: ItemDetailSheetProps)
       {/* Backdrop */}
       <div 
         className={cn(
-          "fixed inset-0 bg-foreground/50 z-50 transition-opacity duration-300 ios-layer",
+          "fixed inset-0 bg-foreground/50 z-50 transition-opacity duration-300",
           isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
         onClick={onClose}
@@ -91,7 +91,7 @@ export const ItemDetailSheet = ({ item, isOpen, onClose }: ItemDetailSheetProps)
       {/* Sheet */}
       <div 
         className={cn(
-          "fixed z-50 bg-card border border-border shadow-none transition-transform duration-300 overflow-hidden flex flex-col ios-layer",
+          "fixed z-50 bg-card border border-border shadow-none transition-transform duration-300 overflow-hidden flex flex-col",
           "inset-x-0 bottom-0 rounded-t-3xl h-[85dvh] max-h-[85dvh]",
           "lg:inset-y-4 lg:right-4 lg:left-auto lg:bottom-auto lg:rounded-2xl lg:w-[480px] lg:h-auto lg:max-h-[calc(100vh-2rem)]",
           isOpen ? "translate-y-0 lg:translate-x-0" : "translate-y-full lg:translate-y-0 lg:translate-x-full"
