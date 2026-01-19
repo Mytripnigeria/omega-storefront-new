@@ -119,4 +119,15 @@
       padding-bottom: 2rem; /* 32px - no BottomNav on desktop */
     }
   }
+
+  /* Safe viewport height utilities with dvh fallback */
+  .h-85-safe {
+    height: 85vh;
+    height: 85dvh;
+  }
+  
+  .max-h-85-safe {
+    max-height: 85vh;
+    max-height: 85dvh;
+  }
 }
