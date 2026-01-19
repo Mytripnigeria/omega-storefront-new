@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Star, X, Send } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Star, X, Send, ImagePlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 interface OrderReviewSheetProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (rating: number, review: string) => void;
+  onSubmit: (rating: number, review: string, images?: string[]) => void;
   orderId?: string;
 }
 
@@ -17,8 +17,40 @@ export const OrderReviewSheet = ({ isOpen, onClose, onSubmit, orderId }: OrderRe
   const [rating, setRating] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(0);
   const [review, setReview] = useState('');
+  const [images, setImages] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { triggerHaptic } = useHaptics();
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const newImages: string[] = [];
+    Array.from(files).slice(0, 4 - images.length).forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          newImages.push(event.target.result as string);
+          if (newImages.length === Math.min(files.length, 4 - images.length)) {
+            setImages((prev) => [...prev, ...newImages].slice(0, 4));
+            triggerHaptic('selection');
+          }
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+    triggerHaptic('selection');
+  };
 
   const handleStarClick = (star: number) => {
     setRating(star);
@@ -38,10 +70,11 @@ export const OrderReviewSheet = ({ isOpen, onClose, onSubmit, orderId }: OrderRe
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 500));
     
-    onSubmit(rating, review);
+    onSubmit(rating, review, images.length > 0 ? images : undefined);
     setIsSubmitting(false);
     setRating(0);
     setReview('');
+    setImages([]);
     onClose();
   };
 
@@ -140,7 +173,7 @@ export const OrderReviewSheet = ({ isOpen, onClose, onSubmit, orderId }: OrderRe
               </div>
 
               {/* Review Text */}
-              <div className="mb-6">
+              <div className="mb-4">
                 <Textarea
                   placeholder="Share your thoughts about this order (optional)"
                   value={review}
@@ -150,6 +183,58 @@ export const OrderReviewSheet = ({ isOpen, onClose, onSubmit, orderId }: OrderRe
                 />
                 <p className="text-xs text-muted-foreground text-right mt-1">
                   {review.length}/500
+                </p>
+              </div>
+
+              {/* Image Attachments */}
+              <div className="mb-6">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleImageUpload}
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                />
+                
+                <div className="flex items-center gap-2 flex-wrap">
+                  {images.map((img, index) => (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      className="relative w-16 h-16 rounded-lg overflow-hidden border border-border"
+                    >
+                      <img
+                        src={img}
+                        alt={`Attachment ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        onClick={() => removeImage(index)}
+                        className="absolute top-0.5 right-0.5 w-5 h-5 bg-foreground/80 rounded-full flex items-center justify-center"
+                      >
+                        <X className="w-3 h-3 text-background" />
+                      </button>
+                    </motion.div>
+                  ))}
+                  
+                  {images.length < 4 && (
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-16 h-16 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 text-muted-foreground hover:border-foreground hover:text-foreground transition-colors"
+                    >
+                      <ImagePlus className="w-5 h-5" />
+                      <span className="text-[10px]">Add</span>
+                    </motion.button>
+                  )}
+                </div>
+                
+                <p className="text-xs text-muted-foreground mt-2">
+                  Add up to 4 photos (optional)
                 </p>
               </div>
 
