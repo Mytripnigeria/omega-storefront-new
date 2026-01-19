@@ -31,69 +31,65 @@ export const ComboItemCard = ({ item, onItemClick, onQuickAdd }: ComboItemCardPr
     onQuickAdd(item);
   };
 
+  // Get unique item names for display
+  const uniqueItems = item.comboItems?.reduce((acc, ci) => {
+    const existing = acc.find(i => i.name === ci.name);
+    if (existing) {
+      existing.count++;
+    } else {
+      acc.push({ name: ci.name, count: 1 });
+    }
+    return acc;
+  }, [] as { name: string; count: number }[]) || [];
+
+  const itemsSummary = uniqueItems.map(i => i.count > 1 ? `${i.count}x ${i.name}` : i.name).join(' + ');
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -4 }}
-      transition={{ duration: 0.2 }}
-      className="bg-card rounded-2xl overflow-hidden shadow-card hover:shadow-card-hover transition-all cursor-pointer border border-primary/20"
+      whileHover={{ scale: 1.01 }}
+      transition={{ duration: 0.15 }}
+      className="bg-card rounded-xl overflow-hidden shadow-card hover:shadow-card-hover transition-all cursor-pointer flex gap-3 p-3 border border-primary/10"
       onClick={() => {
         triggerHaptic('light');
         onItemClick(item);
       }}
     >
       {/* Image with savings badge */}
-      <div className="relative aspect-[16/10] overflow-hidden">
+      <div className="relative w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden">
         <img
           src={item.image}
           alt={item.name}
           className="w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-        
         {/* Savings badge */}
-        <div className="absolute top-3 left-3 bg-success text-success-foreground px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1">
-          <Tag className="w-3 h-3" />
-          Save {savingsPercent}%
+        <div className="absolute top-1 left-1 bg-success text-success-foreground px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-0.5">
+          <Tag className="w-2.5 h-2.5" />
+          -{savingsPercent}%
         </div>
       </div>
 
-      <div className="p-4">
-        {/* Title and description */}
-        <h3 className="font-bold text-lg mb-1">{item.name}</h3>
-        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{item.description}</p>
-
-        {/* Combo items breakdown */}
-        <div className="bg-secondary/50 rounded-xl p-3 mb-3 space-y-1.5">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Includes:</p>
-          {item.comboItems?.map((comboItem, idx) => (
-            <div key={idx} className="flex justify-between items-center text-sm">
-              <span className="text-foreground">{comboItem.name}</span>
-              <span className="text-muted-foreground line-through text-xs">
-                {formatPrice(comboItem.originalPrice)}
-              </span>
-            </div>
-          ))}
-          <div className="pt-2 mt-2 border-t border-border flex justify-between items-center">
-            <span className="text-xs text-muted-foreground">Original Total:</span>
-            <span className="text-sm text-muted-foreground line-through">{formatPrice(originalTotal)}</span>
-          </div>
+      {/* Content */}
+      <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+        <div>
+          <h3 className="font-semibold text-sm mb-0.5 truncate">{item.name}</h3>
+          <p className="text-xs text-muted-foreground line-clamp-2">{itemsSummary}</p>
         </div>
 
-        {/* Price and add button */}
-        <div className="flex items-center justify-between">
-          <div>
-            <span className="text-xl font-bold text-primary">{formatPrice(item.price)}</span>
-            <p className="text-xs text-success font-medium">You save {formatPrice(savings)}</p>
+        {/* Price row */}
+        <div className="flex items-center justify-between mt-1">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-primary">{formatPrice(item.price)}</span>
+            <span className="text-xs text-muted-foreground line-through">{formatPrice(originalTotal)}</span>
           </div>
           <motion.div whileTap={{ scale: 0.9 }}>
             <Button
               size="icon"
               onClick={handleQuickAdd}
-              className="h-10 w-10 rounded-full"
+              className="h-8 w-8 rounded-full"
             >
-              <Plus className="w-5 h-5" />
+              <Plus className="w-4 h-4" />
             </Button>
           </motion.div>
         </div>
