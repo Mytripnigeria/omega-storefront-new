@@ -40,10 +40,10 @@ export const SignInSheet = ({ isOpen, onClose }: SignInSheetProps) => {
           "fixed z-50 bg-card shadow-none border border-border transition-all duration-300 safari-fix",
           // Mobile: bottom sheet
           "inset-x-0 bottom-0 rounded-t-3xl",
-          isOpen ? "translate-y-0" : "translate-y-full",
+          isOpen ? "translate-y-0" : "translate-y-full pointer-events-none invisible",
           // Desktop: centered dialog
           "lg:inset-auto lg:top-1/2 lg:left-1/2 lg:-translate-x-1/2 lg:rounded-2xl lg:w-full lg:max-w-md",
-          isOpen ? "lg:-translate-y-1/2 lg:opacity-100" : "lg:-translate-y-1/2 lg:opacity-0 lg:pointer-events-none"
+          isOpen ? "lg:-translate-y-1/2 lg:opacity-100 lg:visible lg:pointer-events-auto" : "lg:-translate-y-1/2 lg:opacity-0 lg:pointer-events-none lg:invisible"
         )}
         onClick={(e) => e.stopPropagation()}
       >
