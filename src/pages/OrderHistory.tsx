@@ -291,13 +291,13 @@ const OrderHistory = () => {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     {order.status === 'completed' && (
                       <>
                         <Button
                           variant="outline"
                           size="sm"
-                          className="flex-1"
+                          className="flex-1 min-w-[100px]"
                           onClick={() => handleReorder(order)}
                         >
                           <RotateCcw className="w-4 h-4 mr-1" />
@@ -307,7 +307,7 @@ const OrderHistory = () => {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="flex-1"
+                            className="flex-1 min-w-[100px]"
                             onClick={() => handleOpenReview(order)}
                           >
                             <Star className="w-4 h-4 mr-1" />
@@ -319,7 +319,7 @@ const OrderHistory = () => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="flex-1"
+                      className="flex-1 min-w-[110px]"
                       onClick={() => navigate(`/order-tracking?order=${order.id}`)}
                     >
                       View details
