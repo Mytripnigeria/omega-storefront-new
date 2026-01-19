@@ -82,7 +82,7 @@ export const ItemDetailSheet = ({ item, isOpen, onClose }: ItemDetailSheetProps)
       {/* Backdrop */}
       <div 
         className={cn(
-          "fixed inset-0 bg-foreground/40 z-50 transition-opacity duration-300",
+          "fixed inset-0 bg-foreground/25 z-50 transition-opacity duration-300",
           isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
         onClick={onClose}
@@ -116,7 +116,7 @@ export const ItemDetailSheet = ({ item, isOpen, onClose }: ItemDetailSheetProps)
           
           <button
             onClick={onClose}
-            className="absolute top-3 right-3 w-9 h-9 rounded-full bg-card/90 backdrop-blur-sm flex items-center justify-center"
+            className="absolute top-3 right-3 w-9 h-9 rounded-full bg-card flex items-center justify-center"
           >
             <X className="w-4 h-4" />
           </button>
