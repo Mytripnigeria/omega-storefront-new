@@ -38,7 +38,7 @@ export const CartSheet = ({ isOpen, onClose, onCheckout }: CartSheetProps) => {
       {/* Backdrop */}
       <div 
         className={cn(
-          "fixed inset-0 bg-foreground/40 z-50 transition-opacity duration-300",
+          "fixed inset-0 bg-foreground/50 z-50 transition-opacity duration-300 safari-fix",
           isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
         onClick={onClose}
@@ -47,7 +47,7 @@ export const CartSheet = ({ isOpen, onClose, onCheckout }: CartSheetProps) => {
       {/* Sheet - Bottom sheet on mobile, centered dialog on desktop */}
       <div 
         className={cn(
-          "fixed z-50 bg-card shadow-modal transition-all duration-300 flex flex-col",
+          "fixed z-50 bg-card shadow-none border border-border transition-all duration-300 flex flex-col safari-fix",
           // Mobile: bottom sheet
           "inset-x-0 bottom-0 rounded-t-3xl h-[85vh] max-h-[85vh]",
           isOpen ? "translate-y-0" : "translate-y-full",
