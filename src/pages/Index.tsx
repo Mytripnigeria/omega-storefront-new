@@ -18,7 +18,8 @@ import { Footer } from '@/components/Footer';
 import { PageTransition } from '@/components/PageTransition';
 import { BannerSkeleton, MenuSectionSkeleton } from '@/components/skeletons';
 import { useSkeletonLoader } from '@/hooks/useSkeletonLoader';
-import { menuItems, categories } from '@/data/menuData';
+import { menuItems, categories, comboItems } from '@/data/menuData';
+import { ComboItemCard } from '@/components/ComboItemCard';
 import { useCart } from '@/context/CartContext';
 import { MenuItem } from '@/types/menu';
 import { toast } from 'sonner';
@@ -29,7 +30,7 @@ const Index = () => {
   const { addItem, isLoggedIn } = useCart();
   const isLoading = useSkeletonLoader(1500);
 
-  const [activeCategory, setActiveCategory] = useState('popular');
+  const [activeCategory, setActiveCategory] = useState('combos');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [isItemSheetOpen, setIsItemSheetOpen] = useState(false);
@@ -52,6 +53,9 @@ const Index = () => {
 
     const groups: { [key: string]: MenuItem[] } = {};
 
+    // Combos
+    groups['combos'] = comboItems.filter(matches);
+
     // Popular
     groups['popular'] = menuItems.filter(item => item.popular).filter(matches);
 
@@ -59,7 +63,7 @@ const Index = () => {
     groups['new'] = menuItems.filter(item => item.newRelease).filter(matches);
 
     // By category
-    categories.filter(c => c.id !== 'popular' && c.id !== 'new').forEach(cat => {
+    categories.filter(c => c.id !== 'popular' && c.id !== 'new' && c.id !== 'combos').forEach(cat => {
       groups[cat.id] = menuItems.filter(item => item.category === cat.id).filter(matches);
     });
 
@@ -170,6 +174,38 @@ const Index = () => {
               categories.map(category => {
                 const items = groupedItems[category.id] || [];
                 if (items.length === 0) return null;
+                
+                // Special rendering for combos
+                if (category.id === 'combos') {
+                  return (
+                    <section
+                      key={category.id}
+                      ref={(el) => {
+                        const prev = sectionRefs.current[category.id];
+                        if (prev && observerRef.current) observerRef.current.unobserve(prev);
+                        sectionRefs.current[category.id] = el;
+                        if (el && observerRef.current) observerRef.current.observe(el);
+                      }}
+                      data-category={category.id}
+                      className="mb-6 px-4 lg:px-0"
+                    >
+                      <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                        <span>{category.emoji}</span>
+                        <span>{category.name}</span>
+                      </h2>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {items.map(item => (
+                          <ComboItemCard
+                            key={item.id}
+                            item={item}
+                            onItemClick={handleItemClick}
+                            onQuickAdd={handleQuickAdd}
+                          />
+                        ))}
+                      </div>
+                    </section>
+                  );
+                }
                 
                 return (
                   <section

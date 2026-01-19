@@ -8,6 +8,14 @@ export interface MenuItem {
   options?: ItemOption[];
   popular?: boolean;
   newRelease?: boolean;
+  isCombo?: boolean;
+  comboItems?: ComboItem[];
+}
+
+export interface ComboItem {
+  itemId: string;
+  name: string;
+  originalPrice: number;
 }
 
 export interface ItemOption {

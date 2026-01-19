@@ -1,6 +1,7 @@
 import { MenuItem, Category } from '@/types/menu';
 
 export const categories: Category[] = [
+  { id: 'combos', name: 'Combos', emoji: '🎁' },
   { id: 'popular', name: 'Popular', emoji: '🔥' },
   { id: 'new', name: 'New Release', emoji: '✨' },
   { id: 'specialties', name: 'Specialties', emoji: '👨‍🍳' },
@@ -9,6 +10,68 @@ export const categories: Category[] = [
   { id: 'sides', name: 'Sides', emoji: '🍟' },
   { id: 'drinks', name: 'Drinks', emoji: '🥤' },
   { id: 'desserts', name: 'Desserts', emoji: '🍰' },
+];
+
+// Combo Deals
+export const comboItems: MenuItem[] = [
+  {
+    id: 'combo-1',
+    name: 'Jollof Rice Feast',
+    description: 'Signature Jollof Rice + Peppered Chicken + Zobo drink. Perfect for one!',
+    price: 5500,
+    image: 'https://images.unsplash.com/photo-1604329760661-e71dc83f8f26?w=400&h=300&fit=crop',
+    category: 'combos',
+    isCombo: true,
+    comboItems: [
+      { itemId: '1', name: 'Signature Jollof Rice', originalPrice: 3500 },
+      { itemId: '2', name: 'Peppered Chicken', originalPrice: 2800 },
+      { itemId: '7', name: 'Zobo', originalPrice: 800 },
+    ],
+  },
+  {
+    id: 'combo-2',
+    name: 'Family Platter',
+    description: 'Suya Platter + Fried Rice & Chicken + 2 Chapman drinks. Feeds 3-4 people.',
+    price: 12000,
+    image: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400&h=300&fit=crop',
+    category: 'combos',
+    isCombo: true,
+    comboItems: [
+      { itemId: '5', name: 'Suya Platter', originalPrice: 4500 },
+      { itemId: '21', name: 'Fried Rice & Chicken', originalPrice: 3500 },
+      { itemId: '21', name: 'Fried Rice & Chicken', originalPrice: 3500 },
+      { itemId: '8', name: 'Chapman', originalPrice: 1500 },
+      { itemId: '8', name: 'Chapman', originalPrice: 1500 },
+    ],
+  },
+  {
+    id: 'combo-3',
+    name: 'Sweet Tooth Bundle',
+    description: 'Puff Puff & Dip + Chin Chin + Chapman. The ultimate dessert experience!',
+    price: 3200,
+    image: 'https://images.unsplash.com/photo-1624353365286-3f8d62daad51?w=400&h=300&fit=crop',
+    category: 'combos',
+    isCombo: true,
+    comboItems: [
+      { itemId: '9', name: 'Puff Puff & Dip', originalPrice: 1500 },
+      { itemId: '10', name: 'Chin Chin', originalPrice: 1000 },
+      { itemId: '8', name: 'Chapman', originalPrice: 1500 },
+    ],
+  },
+  {
+    id: 'combo-4',
+    name: 'Nigerian Breakfast',
+    description: 'Akara + Moi Moi + Kunu drink. Traditional morning favorites.',
+    price: 1800,
+    image: 'https://images.unsplash.com/photo-1624371414361-e670edf4898d?w=400&h=300&fit=crop',
+    category: 'combos',
+    isCombo: true,
+    comboItems: [
+      { itemId: '35', name: 'Akara', originalPrice: 600 },
+      { itemId: '26', name: 'Moi Moi', originalPrice: 1000 },
+      { itemId: '30', name: 'Kunu', originalPrice: 700 },
+    ],
+  },
 ];
 
 export const menuItems: MenuItem[] = [
