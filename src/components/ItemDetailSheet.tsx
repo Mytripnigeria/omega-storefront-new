@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { X, Minus, Plus, ChevronRight, Check } from 'lucide-react';
+import { X, Minus, Plus, ChevronRight, Check, Tag, Package } from 'lucide-react';
 import { MenuItem } from '@/types/menu';
 import { useCart } from '@/context/CartContext';
 import { Button } from '@/components/ui/button';
@@ -22,10 +22,19 @@ export const ItemDetailSheet = ({ item, isOpen, onClose }: ItemDetailSheetProps)
 
   // Get upsell items (same category or random)
   const upsellItems = useMemo(() => {
-    if (!item) return [];
+    if (!item || item.isCombo) return [];
     return menuItems
       .filter(i => i.id !== item.id && i.category === item.category)
       .slice(0, 3);
+  }, [item]);
+
+  // Combo calculations
+  const comboDetails = useMemo(() => {
+    if (!item?.isCombo || !item.comboItems) return null;
+    const originalTotal = item.comboItems.reduce((sum, ci) => sum + ci.originalPrice, 0);
+    const savings = originalTotal - item.price;
+    const savingsPercent = Math.round((savings / originalTotal) * 100);
+    return { originalTotal, savings, savingsPercent };
   }, [item]);
 
   if (!item) return null;
@@ -66,6 +75,8 @@ export const ItemDetailSheet = ({ item, isOpen, onClose }: ItemDetailSheetProps)
     toast.success(`${upsellItem.name} added`);
   };
 
+  const formatPrice = (price: number) => `₦${price.toLocaleString()}`;
+
   return (
     <>
       {/* Backdrop */}
@@ -93,6 +104,16 @@ export const ItemDetailSheet = ({ item, isOpen, onClose }: ItemDetailSheetProps)
             alt={item.name}
             className="w-full h-full object-cover"
           />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+          
+          {/* Combo savings badge */}
+          {item.isCombo && comboDetails && (
+            <div className="absolute top-3 left-3 bg-success text-success-foreground px-3 py-1.5 rounded-full text-sm font-bold flex items-center gap-1.5">
+              <Tag className="w-4 h-4" />
+              Save {comboDetails.savingsPercent}%
+            </div>
+          )}
+          
           <button
             onClick={onClose}
             className="absolute top-3 right-3 w-9 h-9 rounded-full bg-card/90 backdrop-blur-sm flex items-center justify-center"
@@ -106,9 +127,45 @@ export const ItemDetailSheet = ({ item, isOpen, onClose }: ItemDetailSheetProps)
           <div className="p-5">
             <div className="flex items-start justify-between gap-3 mb-1">
               <h2 className="text-xl font-bold">{item.name}</h2>
-              <span className="font-bold text-lg flex-shrink-0">₦{item.price.toLocaleString()}</span>
+              <div className="text-right flex-shrink-0">
+                <span className="font-bold text-lg">{formatPrice(item.price)}</span>
+                {item.isCombo && comboDetails && (
+                  <p className="text-xs text-muted-foreground line-through">{formatPrice(comboDetails.originalTotal)}</p>
+                )}
+              </div>
             </div>
             <p className="text-muted-foreground text-sm mb-5">{item.description}</p>
+
+            {/* Combo Items Breakdown */}
+            {item.isCombo && item.comboItems && (
+              <div className="mb-5 bg-secondary/50 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Package className="w-4 h-4 text-primary" />
+                  <h3 className="font-semibold text-sm">What's Included</h3>
+                </div>
+                <div className="space-y-2">
+                  {item.comboItems.map((comboItem, idx) => (
+                    <div key={idx} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
+                          <Check className="w-3.5 h-3.5 text-primary" />
+                        </div>
+                        <span className="text-sm">{comboItem.name}</span>
+                      </div>
+                      <span className="text-sm text-muted-foreground line-through">
+                        {formatPrice(comboItem.originalPrice)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                {comboDetails && (
+                  <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
+                    <span className="text-sm font-medium text-success">Your Savings</span>
+                    <span className="font-bold text-success">{formatPrice(comboDetails.savings)}</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Options - Minimalist List Style */}
             {item.options?.map(option => (
