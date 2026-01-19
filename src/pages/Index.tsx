@@ -11,6 +11,7 @@ import { WalletSheet } from '@/components/WalletSheet';
 import { LocationSheet } from '@/components/LocationSheet';
 import { TimePickerSheet } from '@/components/TimePickerSheet';
 import { SignInSheet } from '@/components/SignInSheet';
+import { StoreInfoSheet } from '@/components/StoreInfoSheet';
 import { FeaturedBanner } from '@/components/FeaturedBanner';
 import { DesktopCartSummary } from '@/components/DesktopCartSummary';
 import { Footer } from '@/components/Footer';
@@ -37,6 +38,7 @@ const Index = () => {
   const [isLocationOpen, setIsLocationOpen] = useState(false);
   const [isTimePickerOpen, setIsTimePickerOpen] = useState(false);
   const [isSignInOpen, setIsSignInOpen] = useState(false);
+  const [isStoreInfoOpen, setIsStoreInfoOpen] = useState(false);
 
   const sectionRefs = useRef<{ [key: string]: HTMLElement | null }>({});
   const observerRef = useRef<IntersectionObserver | null>(null);
@@ -129,11 +131,14 @@ const Index = () => {
         {/* Hero Section with Logo */}
         <div className="px-4 pt-6 pb-4 max-w-7xl mx-auto lg:px-6">
           <div className="mb-4">
-            <img src={logo} alt="Toasty" className="h-14 w-auto mb-2" />
-            <div className="flex items-center gap-1 text-sm text-success">
+            <img src={logo} alt="Mr. Jollof" className="h-14 w-auto mb-2" />
+            <button 
+              onClick={() => setIsStoreInfoOpen(true)}
+              className="flex items-center gap-1 text-sm text-success hover:text-success/80 transition-colors"
+            >
               <Clock className="w-3.5 h-3.5" />
               <span>Open · Closes 10pm</span>
-            </div>
+            </button>
           </div>
 
           <OrderTypeSelector 
@@ -233,6 +238,11 @@ const Index = () => {
         <SignInSheet
           isOpen={isSignInOpen}
           onClose={() => setIsSignInOpen(false)}
+        />
+
+        <StoreInfoSheet
+          isOpen={isStoreInfoOpen}
+          onClose={() => setIsStoreInfoOpen(false)}
         />
 
         <Footer />
