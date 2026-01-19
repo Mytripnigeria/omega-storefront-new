@@ -27,7 +27,7 @@ export const SignInSheet = ({ isOpen, onClose }: SignInSheetProps) => {
       {/* Backdrop */}
       <div 
         className={cn(
-          "fixed inset-0 bg-foreground/40 z-50 transition-opacity duration-300",
+          "fixed inset-0 bg-foreground/50 z-50 transition-opacity duration-300 safari-fix",
           isOpen ? "opacity-100" : "opacity-0 pointer-events-none",
           "lg:flex lg:items-center lg:justify-center"
         )}
@@ -37,7 +37,7 @@ export const SignInSheet = ({ isOpen, onClose }: SignInSheetProps) => {
       {/* Sheet - Bottom sheet on mobile, centered dialog on desktop */}
       <div 
         className={cn(
-          "fixed z-50 bg-card shadow-modal transition-all duration-300",
+          "fixed z-50 bg-card shadow-none border border-border transition-all duration-300 safari-fix",
           // Mobile: bottom sheet
           "inset-x-0 bottom-0 rounded-t-3xl",
           isOpen ? "translate-y-0" : "translate-y-full",
