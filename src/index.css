@@ -95,9 +95,9 @@
     display: none;
   }
 
-  /* iOS/Safari compositing fix for sticky/fixed elements */
-  .ios-layer {
-    transform: translateZ(0);
+  /* Safari compositing fix for sticky/fixed elements */
+  .safari-fix {
+    isolation: isolate;
     -webkit-backface-visibility: hidden;
     backface-visibility: hidden;
   }
