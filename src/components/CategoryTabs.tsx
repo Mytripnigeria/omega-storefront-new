@@ -92,7 +92,7 @@ export const CategoryTabs = ({
             ) : (
               <button
                 onClick={() => setIsSearchOpen(true)}
-                className="w-9 h-9 rounded-lg border border-border flex items-center justify-center hover:bg-secondary transition-colors"
+                className="w-9 h-9 rounded-lg border border-border/60 bg-background flex items-center justify-center hover:bg-secondary transition-colors"
                 aria-label="Search"
               >
                 <Search className="w-4 h-4 text-muted-foreground" />
@@ -110,7 +110,7 @@ export const CategoryTabs = ({
                 "flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap",
                 activeCategory === category.id
                   ? "bg-foreground text-background"
-                  : "border border-border text-foreground hover:bg-secondary",
+                  : "bg-background border border-border/60 text-foreground hover:bg-secondary",
               )}
             >
               {category.name} {category.emoji}
