@@ -29,7 +29,7 @@ export const BottomNav = ({ onCartClick, onWalletClick, onSignInClick, isLoggedI
 
   return (
     <div className="fixed bottom-0 inset-x-0 z-40 px-4 pb-6 pt-3 pointer-events-none lg:px-6">
-      <div className="max-w-lg mx-auto lg:max-w-2xl">
+      <div className="max-w-lg mx-auto lg:max-w-xl">
         <div className="flex items-center gap-2">
           {/* Icon Buttons */}
           <div className="flex items-center gap-1 bg-card rounded-full p-1 border border-border/60 shadow-none pointer-events-auto">
