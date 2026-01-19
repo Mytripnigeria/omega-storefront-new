@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Clock, MapPin, RotateCcw, ChevronRight, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { PageTransition } from '@/components/PageTransition';
+import { PageTransition, StaggerContainer, StaggerItem, FadeInSection } from '@/components/PageTransition';
 import { OrderHistorySkeleton } from '@/components/skeletons';
 import { OrderReviewSheet } from '@/components/OrderReviewSheet';
 import { useSkeletonLoader } from '@/hooks/useSkeletonLoader';
@@ -218,12 +218,12 @@ const OrderHistory = () => {
               </Button>
             </div>
           ) : (
-            <div className="lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-4 space-y-3 lg:space-y-0">
+            <StaggerContainer className="lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-4 space-y-3 lg:space-y-0">
               {orders.map((order) => (
-                <div 
-                  key={order.id}
-                  className="bg-card rounded-lg border border-border p-4"
-                >
+                <StaggerItem key={order.id}>
+                  <div 
+                    className="bg-card rounded-lg border border-border p-4"
+                  >
                   {/* Order Header */}
                   <div className="flex items-start justify-between mb-3">
                     <div>
@@ -326,9 +326,10 @@ const OrderHistory = () => {
                       <ChevronRight className="w-4 h-4 ml-1" />
                     </Button>
                   </div>
-                </div>
+                  </div>
+                </StaggerItem>
               ))}
-            </div>
+            </StaggerContainer>
           )}
         </main>
       </div>
