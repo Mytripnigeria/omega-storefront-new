@@ -28,7 +28,7 @@ export const BottomNav = ({ onCartClick, onWalletClick, onSignInClick, isLoggedI
   };
 
   return (
-    <div className="fixed bottom-0 inset-x-0 z-40 px-4 pb-6 pt-3 pointer-events-none lg:px-6">
+    <div className="fixed bottom-0 inset-x-0 z-40 px-4 pb-6 pt-3 pointer-events-none lg:px-6 safari-fix">
       <div className="max-w-lg mx-auto lg:max-w-xl">
         <div className="flex items-center gap-2">
           {/* Icon Buttons */}
