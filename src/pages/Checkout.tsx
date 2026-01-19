@@ -114,7 +114,7 @@ const Checkout = () => {
 
   return (
     <PageTransition>
-      <div className="min-h-screen bg-background pb-32 lg:pb-0">
+      <div className="min-h-screen bg-background pb-28 lg:pb-8">
         {/* Header */}
         <header className="sticky top-0 z-40 bg-background border-b border-border">
           <div className="flex items-center h-14 px-4 max-w-7xl mx-auto lg:px-6">

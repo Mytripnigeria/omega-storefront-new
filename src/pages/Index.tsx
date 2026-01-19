@@ -131,7 +131,7 @@ const Index = () => {
 
   return (
     <PageTransition>
-      <div className="min-h-screen bg-background pb-32 lg:pb-8">
+      <div className="min-h-screen bg-background pb-28 lg:pb-8">
         {/* Hero Section with Logo */}
         <div className="px-4 pt-6 pb-4 max-w-7xl mx-auto lg:px-6">
           <div className="mb-4">

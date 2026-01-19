@@ -61,10 +61,10 @@ const OrderTracking = () => {
 
   return (
     <PageTransition>
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background pb-8">
         {/* Header */}
-        <header className="sticky top-0 z-40 bg-card border-b border-border">
-          <div className="max-w-7xl mx-auto flex items-center h-16 px-4 lg:px-6">
+        <header className="sticky top-0 z-40 bg-background border-b border-border">
+          <div className="max-w-7xl mx-auto flex items-center h-14 px-4 lg:px-6">
             <button onClick={() => navigate('/')} className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
               <ArrowLeft className="w-5 h-5" />
               <span>Back</span>
