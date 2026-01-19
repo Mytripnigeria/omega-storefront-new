@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock } from 'lucide-react';
 import { BottomNav } from '@/components/BottomNav';
@@ -16,6 +16,7 @@ import { FeaturedBanner } from '@/components/FeaturedBanner';
 import { DesktopCartSummary } from '@/components/DesktopCartSummary';
 import { Footer } from '@/components/Footer';
 import { PageTransition } from '@/components/PageTransition';
+import { PullToRefresh } from '@/components/PullToRefresh';
 import { BannerSkeleton, MenuSectionSkeleton } from '@/components/skeletons';
 import { useSkeletonLoader } from '@/hooks/useSkeletonLoader';
 import { menuItems, categories, comboItems } from '@/data/menuData';
@@ -28,7 +29,21 @@ import logo from '@/assets/logo.png';
 const Index = () => {
   const navigate = useNavigate();
   const { addItem, isLoggedIn } = useCart();
-  const isLoading = useSkeletonLoader(1500);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Initial loading
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 1500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleRefresh = useCallback(async () => {
+    setIsLoading(true);
+    // Simulate refresh - in real app, this would refetch data
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    setIsLoading(false);
+    toast.success('Menu refreshed');
+  }, []);
 
   const [activeCategory, setActiveCategory] = useState('combos');
   const [searchQuery, setSearchQuery] = useState('');
@@ -131,7 +146,8 @@ const Index = () => {
 
   return (
     <PageTransition>
-      <div className="min-h-screen bg-background pb-28">
+      <PullToRefresh onRefresh={handleRefresh}>
+        <div className="min-h-screen bg-background pb-28">
         {/* Hero Section with Logo */}
         <div className="px-4 pt-6 pb-4 max-w-7xl mx-auto lg:px-6">
           <div className="mb-4">
@@ -283,6 +299,7 @@ const Index = () => {
 
         <Footer />
       </div>
+      </PullToRefresh>
     </PageTransition>
   );
 };
