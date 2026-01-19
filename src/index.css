@@ -108,4 +108,15 @@
   .safe-bottom-pad {
     padding-bottom: calc(env(safe-area-inset-bottom, 0) + 1.5rem);
   }
+
+  /* Consistent page bottom padding to account for fixed bottom nav */
+  .page-bottom-pad {
+    padding-bottom: 7rem; /* 112px - accounts for BottomNav height + gap */
+  }
+
+  @screen lg {
+    .page-bottom-pad {
+      padding-bottom: 2rem; /* 32px - no BottomNav on desktop */
+    }
+  }
 }

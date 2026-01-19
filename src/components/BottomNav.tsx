@@ -28,11 +28,11 @@ export const BottomNav = ({ onCartClick, onWalletClick, onSignInClick, isLoggedI
   };
 
   return (
-    <div className="fixed bottom-0 inset-x-0 z-40 px-4 pb-8 pt-4" style={{ background: 'transparent' }}>
+    <div className="fixed bottom-0 inset-x-0 z-40 px-4 pb-6 pt-3 pointer-events-none lg:hidden">
       <div className="max-w-lg mx-auto">
         <div className="flex items-center gap-2">
           {/* Icon Buttons */}
-          <div className="flex items-center gap-1 bg-card rounded-full p-1 border border-border shadow-card">
+          <div className="flex items-center gap-1 bg-card rounded-full p-1 border border-border shadow-card pointer-events-auto">
             <motion.button
               onClick={() => handleNavClick(onWalletClick)}
               className="relative w-11 h-11 rounded-full flex items-center justify-center hover:bg-secondary transition-colors"
@@ -70,7 +70,7 @@ export const BottomNav = ({ onCartClick, onWalletClick, onSignInClick, isLoggedI
           <motion.button
             onClick={handleCartClick}
             className={cn(
-              "flex-1 h-14 rounded-full font-bold text-base flex items-center justify-between px-6 transition-all shadow-lg",
+              "flex-1 h-14 rounded-full font-bold text-base flex items-center justify-between px-6 transition-all shadow-lg pointer-events-auto",
               "bg-primary text-primary-foreground hover:bg-primary/90"
             )}
             whileHover={{ scale: 1.02 }}

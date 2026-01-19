@@ -191,9 +191,9 @@ const OrderHistory = () => {
 
   return (
     <PageTransition>
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background pb-8">
         {/* Header */}
-        <header className="sticky top-0 z-40 bg-card border-b border-border">
+        <header className="sticky top-0 z-40 bg-background border-b border-border">
           <div className="max-w-7xl mx-auto flex items-center h-14 px-4 lg:px-6 gap-4">
             <button 
               onClick={() => navigate(-1)}
