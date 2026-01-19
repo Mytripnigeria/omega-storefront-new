@@ -28,7 +28,7 @@ export const BottomNav = ({ onCartClick, onWalletClick, onSignInClick, isLoggedI
   };
 
   return (
-    <div className="fixed bottom-0 inset-x-0 z-40 safe-bottom pb-4 px-4 pt-4">
+    <div className="fixed bottom-0 inset-x-0 z-40 safe-bottom pb-4 px-4 pt-4 bg-background">
       <div className="max-w-lg mx-auto">
         <div className="flex items-center gap-2">
           {/* Icon Buttons */}
