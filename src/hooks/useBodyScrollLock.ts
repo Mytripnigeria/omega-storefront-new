@@ -4,6 +4,17 @@ export const useBodyScrollLock = (isLocked: boolean) => {
   const scrollYRef = useRef(0);
   const wasLockedRef = useRef(false);
 
+  const restoreScrollInstant = (y: number) => {
+    const el = document.documentElement;
+    const prev = el.style.scrollBehavior;
+
+    // App-wide CSS sets `html { scroll-behavior: smooth; }`, which would animate scroll restoration.
+    // For modal close, we want an instantaneous restore with no visible "roll".
+    el.style.scrollBehavior = 'auto';
+    window.scrollTo(0, y);
+    el.style.scrollBehavior = prev;
+  };
+
   useLayoutEffect(() => {
     // Transitioning from unlocked to locked
     if (isLocked && !wasLockedRef.current) {
@@ -26,7 +37,7 @@ export const useBodyScrollLock = (isLocked: boolean) => {
       // Restore scroll synchronously (useLayoutEffect runs before paint), so there is no visible jump.
       // Force a reflow so the browser applies the "unfixed" body styles before we scroll.
       void document.body.offsetHeight;
-      window.scrollTo(0, parsed);
+      restoreScrollInstant(parsed);
     }
 
     return () => {
@@ -39,7 +50,7 @@ export const useBodyScrollLock = (isLocked: boolean) => {
 
         // If we unmount while still locked (rare), ensure the page returns to the original scroll position.
         void document.body.offsetHeight;
-        window.scrollTo(0, parsed);
+        restoreScrollInstant(parsed);
       }
     };
   }, [isLocked]);
