@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { menuItems } from '@/data/menuData';
 import { toast } from 'sonner';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface ItemDetailSheetProps {
   item: MenuItem | null;
@@ -15,6 +16,8 @@ interface ItemDetailSheetProps {
 }
 
 export const ItemDetailSheet = ({ item, isOpen, onClose }: ItemDetailSheetProps) => {
+  useBodyScrollLock(isOpen);
+  
   const { addItem } = useCart();
   const [quantity, setQuantity] = useState(1);
   const [selectedOptions, setSelectedOptions] = useState<{ [key: string]: string[] }>({});

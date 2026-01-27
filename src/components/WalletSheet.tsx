@@ -4,6 +4,7 @@ import { useCart } from '@/context/CartContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface WalletSheetProps {
   isOpen: boolean;
@@ -35,6 +36,8 @@ const tierNextPoints = {
 };
 
 export const WalletSheet = ({ isOpen, onClose }: WalletSheetProps) => {
+  useBodyScrollLock(isOpen);
+  
   const { user } = useCart();
   const [view, setView] = useState<View>('main');
   const [copied, setCopied] = useState(false);

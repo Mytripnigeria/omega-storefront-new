@@ -1,8 +1,8 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Bell, Moon, Globe, Shield, Smartphone, MapPin, Volume2, Vibrate, Eye } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { PageTransition } from '@/components/PageTransition';
+import { useTheme } from '@/context/ThemeContext';
 import { toast } from 'sonner';
 
 interface SettingItem {
@@ -10,88 +10,71 @@ interface SettingItem {
   icon: React.ElementType;
   label: string;
   description: string;
-  enabled: boolean;
 }
 
 const Settings = () => {
   const navigate = useNavigate();
+  const { theme, toggleTheme } = useTheme();
   
-  const [settings, setSettings] = useState<SettingItem[]>([
+  // Settings that use local state
+  const staticSettings: SettingItem[] = [
     {
       id: 'push_notifications',
       icon: Bell,
       label: 'Push Notifications',
       description: 'Receive order updates and promotions',
-      enabled: true,
-    },
-    {
-      id: 'dark_mode',
-      icon: Moon,
-      label: 'Dark Mode',
-      description: 'Use dark theme throughout the app',
-      enabled: false,
     },
     {
       id: 'location_services',
       icon: MapPin,
       label: 'Location Services',
       description: 'Allow access to your location for delivery',
-      enabled: true,
     },
     {
       id: 'sound_effects',
       icon: Volume2,
       label: 'Sound Effects',
       description: 'Play sounds for notifications and actions',
-      enabled: true,
     },
     {
       id: 'haptic_feedback',
       icon: Vibrate,
       label: 'Haptic Feedback',
       description: 'Vibration feedback on interactions',
-      enabled: true,
     },
     {
       id: 'biometric_login',
       icon: Shield,
       label: 'Biometric Login',
       description: 'Use fingerprint or face recognition',
-      enabled: false,
     },
     {
       id: 'order_tracking',
       icon: Eye,
       label: 'Live Order Tracking',
       description: 'Show real-time order progress',
-      enabled: true,
     },
     {
       id: 'language',
       icon: Globe,
       label: 'Multi-language',
       description: 'Enable language switching',
-      enabled: false,
     },
     {
       id: 'data_saver',
       icon: Smartphone,
       label: 'Data Saver Mode',
       description: 'Reduce data usage by lowering image quality',
-      enabled: false,
     },
-  ]);
+  ];
 
-  const handleToggle = (id: string) => {
-    setSettings(prev =>
-      prev.map(setting =>
-        setting.id === id
-          ? { ...setting, enabled: !setting.enabled }
-          : setting
-      )
-    );
-    const setting = settings.find(s => s.id === id);
-    toast.success(`${setting?.label} ${!setting?.enabled ? 'enabled' : 'disabled'}`);
+  const handleDarkModeToggle = () => {
+    toggleTheme();
+    toast.success(`Dark mode ${theme === 'light' ? 'enabled' : 'disabled'}`);
+  };
+
+  const handleSettingToggle = (label: string) => {
+    toast.success(`${label} toggled`);
   };
 
   return (
@@ -109,7 +92,23 @@ const Settings = () => {
 
         <div className="max-w-2xl mx-auto px-4 lg:px-6 py-6">
           <div className="bg-card rounded-2xl border border-border overflow-hidden divide-y divide-border">
-            {settings.map((setting) => (
+            {/* Dark Mode Toggle - Special handling */}
+            <div className="flex items-center gap-4 p-4">
+              <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center flex-shrink-0">
+                <Moon className="w-5 h-5 text-muted-foreground" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium">Dark Mode</p>
+                <p className="text-sm text-muted-foreground truncate">Use dark theme throughout the app</p>
+              </div>
+              <Switch
+                checked={theme === 'dark'}
+                onCheckedChange={handleDarkModeToggle}
+              />
+            </div>
+
+            {/* Other Settings */}
+            {staticSettings.map((setting) => (
               <div
                 key={setting.id}
                 className="flex items-center gap-4 p-4"
@@ -122,8 +121,8 @@ const Settings = () => {
                   <p className="text-sm text-muted-foreground truncate">{setting.description}</p>
                 </div>
                 <Switch
-                  checked={setting.enabled}
-                  onCheckedChange={() => handleToggle(setting.id)}
+                  defaultChecked={['push_notifications', 'location_services', 'sound_effects', 'haptic_feedback', 'order_tracking'].includes(setting.id)}
+                  onCheckedChange={() => handleSettingToggle(setting.label)}
                 />
               </div>
             ))}
