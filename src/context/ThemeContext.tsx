@@ -18,7 +18,8 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.remove('light', 'dark');
+    // Remove all potential theme classes including any stray ones
+    root.classList.remove('light', 'dark', 'theme-red', 'theme-blue', 'theme-green');
     root.classList.add(theme);
     localStorage.setItem('theme', theme);
   }, [theme]);
