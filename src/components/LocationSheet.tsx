@@ -168,17 +168,19 @@ export const LocationSheet = ({ isOpen, onClose }: LocationSheetProps) => {
             {sheetContent}
           </motion.div>
 
-          {/* Desktop Dialog - centered with scale animation */}
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="hidden lg:flex fixed z-50 bg-card shadow-lg border border-border flex-col safari-fix top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-2xl w-full max-w-lg max-h-[80vh]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {sheetContent}
-          </motion.div>
+          {/* Desktop Dialog - centered with flexbox wrapper */}
+          <div className="hidden lg:flex fixed inset-0 z-50 items-center justify-center pointer-events-none">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="bg-card shadow-lg border border-border flex flex-col safari-fix rounded-2xl w-full max-w-lg max-h-[80vh] pointer-events-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {sheetContent}
+            </motion.div>
+          </div>
         </>
       )}
     </AnimatePresence>
