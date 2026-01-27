@@ -16,7 +16,8 @@ interface ItemDetailSheetProps {
 }
 
 export const ItemDetailSheet = ({ item, isOpen, onClose }: ItemDetailSheetProps) => {
-  useBodyScrollLock(isOpen);
+  // All hooks must be called unconditionally - before any early returns
+  useBodyScrollLock(isOpen && !!item);
   
   const { addItem } = useCart();
   const [quantity, setQuantity] = useState(1);
@@ -40,6 +41,7 @@ export const ItemDetailSheet = ({ item, isOpen, onClose }: ItemDetailSheetProps)
     return { originalTotal, savings, savingsPercent };
   }, [item]);
 
+  // Early return after all hooks
   if (!item) return null;
 
   const handleOptionChange = (optionId: string, choiceId: string) => {
