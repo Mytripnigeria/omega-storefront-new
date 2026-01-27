@@ -1,10 +1,13 @@
+import { useEffect } from 'react';
 import { X, Search, Clock, MapPin } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { locations } from '@/data/menuData';
 import { useCart } from '@/context/CartContext';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { useHaptics } from '@/hooks/useHaptics';
 
 interface LocationSheetProps {
   isOpen: boolean;
@@ -13,48 +16,64 @@ interface LocationSheetProps {
 
 export const LocationSheet = ({ isOpen, onClose }: LocationSheetProps) => {
   useBodyScrollLock(isOpen);
+  const { triggerHaptic } = useHaptics();
   
+  // Trigger haptic on open
+  useEffect(() => {
+    if (isOpen) {
+      triggerHaptic('medium');
+    }
+  }, [isOpen, triggerHaptic]);
   const { orderType, setOrderType, selectedLocation, setSelectedLocation } = useCart();
 
   const handleSelectLocation = (locationName: string) => {
+    triggerHaptic('success');
     setSelectedLocation(locationName);
     onClose();
   };
 
-  return (
-    <>
-      {/* Backdrop */}
-      <div 
-        className={cn(
-          "fixed inset-0 bg-foreground/50 z-50 transition-opacity duration-300 safari-fix",
-          isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
-        )}
-        onClick={onClose}
-      />
+  const handleClose = () => {
+    triggerHaptic('light');
+    onClose();
+  };
 
-      {/* Sheet - Bottom sheet on mobile, centered dialog on desktop */}
-      <div 
-        className={cn(
-          "fixed z-50 bg-card shadow-none border border-border transition-all duration-300 flex flex-col safari-fix",
-          // Mobile: bottom sheet
-          "inset-x-0 bottom-0 rounded-t-3xl max-h-[85vh]",
-          isOpen ? "translate-y-0" : "translate-y-full",
-          // Desktop: centered dialog
-          "lg:inset-auto lg:top-1/2 lg:left-1/2 lg:-translate-x-1/2 lg:rounded-2xl lg:w-full lg:max-w-lg lg:max-h-[80vh]",
-          isOpen ? "lg:-translate-y-1/2 lg:opacity-100" : "lg:-translate-y-1/2 lg:opacity-0 lg:pointer-events-none"
-        )}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 pb-4">
-          <h2 className="text-xl font-bold">Order details</h2>
-          <button
-            onClick={onClose}
-            className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center"
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-foreground/50 z-50 safari-fix"
+            onClick={handleClose}
+          />
+
+          {/* Sheet - Bottom sheet on mobile, centered dialog on desktop */}
+          <motion.div 
+            initial={{ y: '100%', opacity: 0.5 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: '100%', opacity: 0 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className={cn(
+              "fixed z-50 bg-card shadow-none border border-border flex flex-col safari-fix",
+              "inset-x-0 bottom-0 rounded-t-3xl max-h-[85vh]",
+              "lg:inset-auto lg:top-1/2 lg:left-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-2xl lg:w-full lg:max-w-lg lg:max-h-[80vh]"
+            )}
+            onClick={(e) => e.stopPropagation()}
           >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 pb-4">
+              <h2 className="text-xl font-bold">Order details</h2>
+              <button
+                onClick={handleClose}
+                className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center active:scale-95 transition-transform"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
         <div className="px-6 pb-4">
           {/* Order Type Toggle */}
@@ -144,8 +163,10 @@ export const LocationSheet = ({ isOpen, onClose }: LocationSheetProps) => {
               <p className="text-sm text-muted-foreground mt-1">We'll show you available delivery options</p>
             </div>
           )}
-        </div>
-      </div>
-    </>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 };
