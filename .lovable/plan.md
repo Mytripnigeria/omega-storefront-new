@@ -1,50 +1,50 @@
 
-
-# Fix Dark Mode Toggle
+# Fix Modal Scroll Position Restoration
 
 ## The Problem
-The dark mode toggle isn't working because of two issues:
-1. There's a leftover `theme-red` class on the HTML element in `index.html` that isn't being managed by the theme system
-2. The theme context only removes `light` and `dark` classes but doesn't clean up other theme-related classes
+When you close a modal, the page jumps to the top instead of returning to where you were scrolling.
+
+**Root cause:** The `useBodyScrollLock` hook captures `window.scrollY` every time it runs. When the modal closes and the effect runs again, `scrollY` is `0` (because the body was fixed), so the original position is lost.
 
 ## The Solution
-
-### Step 1: Clean up index.html
-Remove the unused `theme-red` class from the HTML element since it's not defined anywhere in the CSS and may cause confusion.
-
-**File: `index.html`**
-- Change `<html lang="en" class="theme-red">` to `<html lang="en">`
-
-### Step 2: Update ThemeContext to be more robust
-Modify the theme context to also remove any stray theme classes and ensure the dark class is properly applied.
-
-**File: `src/context/ThemeContext.tsx`**
-- Update the `useEffect` to remove additional potential theme classes
-- Add a more comprehensive class cleanup
+Store the scroll position in a `useRef` when the modal opens, so it persists and can be restored when the modal closes.
 
 ## Technical Details
 
-```text
-Current flow:
-index.html: <html class="theme-red">
-     ↓
-ThemeContext adds "dark" class
-     ↓
-Result: <html class="theme-red dark">
-     ↓
-CSS variables may not apply correctly due to leftover class
+**File to modify:** `src/hooks/useBodyScrollLock.ts`
 
-Fixed flow:
-index.html: <html>
-     ↓
-ThemeContext adds "dark" or "light" class
-     ↓
-Result: <html class="dark"> or <html class="light">
-     ↓
-CSS variables apply correctly
+Current broken flow:
+```text
+Modal opens (isLocked = true):
+  - scrollY = 150 (correct)
+  - Sets body.style.top = "-150px"
+  
+Modal closes (isLocked = false):
+  - scrollY = 0 (WRONG - captured fresh, not the saved value)
+  - Tries to restore to position 0
+  - Page jumps to top
 ```
 
-## Files to Modify
-1. `index.html` - Remove the `theme-red` class
-2. `src/context/ThemeContext.tsx` - Add cleanup for any stray theme classes
+Fixed flow:
+```text
+Modal opens (isLocked = true):
+  - scrollYRef.current = 150 (stored in ref)
+  - Sets body.style.top = "-150px"
+  
+Modal closes (isLocked = false):
+  - Uses scrollYRef.current = 150 (preserved value)
+  - Restores to position 150
+  - Page stays where you were
+```
 
+## Implementation Changes
+
+**`src/hooks/useBodyScrollLock.ts`:**
+- Import `useRef` from React
+- Create a `scrollYRef` to store the scroll position when locking
+- When locking: save `window.scrollY` to the ref, then apply fixed positioning
+- When unlocking: restore scroll from the ref value, then clear the ref
+- Update cleanup function to use the stored ref value
+
+## Files to Modify
+1. `src/hooks/useBodyScrollLock.ts` - Fix scroll position storage using useRef
