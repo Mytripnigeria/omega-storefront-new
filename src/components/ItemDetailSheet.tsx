@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, forwardRef } from 'react';
 import { X, Minus, Plus, ChevronRight, Check, Tag, Package } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MenuItem } from '@/types/menu';
@@ -28,7 +28,6 @@ export const ItemDetailSheet = ({ item, isOpen, onClose }: ItemDetailSheetProps)
       triggerHaptic('medium');
     }
   }, [isOpen, item, triggerHaptic]);
-  useBodyScrollLock(isOpen && !!item);
   
   const { addItem } = useCart();
   const [quantity, setQuantity] = useState(1);
