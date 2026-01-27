@@ -1,50 +1,72 @@
 
-# Fix Modal Scroll Position Restoration
+# Fix Location Modal Desktop Positioning and Scroll Restoration
 
-## The Problem
-When you close a modal, the page jumps to the top instead of returning to where you were scrolling.
+## Problems Identified
 
-**Root cause:** The `useBodyScrollLock` hook captures `window.scrollY` every time it runs. When the modal closes and the effect runs again, `scrollY` is `0` (because the body was fixed), so the original position is lost.
+### Problem 1: Desktop Modal Not Centered
+The desktop Location modal uses CSS transforms (`-translate-x-1/2 -translate-y-1/2`) for centering, but these conflict with Framer Motion's scale animation since both use the `transform` property.
 
-## The Solution
-Store the scroll position in a `useRef` when the modal opens, so it persists and can be restored when the modal closes.
+### Problem 2: Page Scrolls to Top When Modal Opens
+When the modal opens, the body gets `position: fixed` which visually jumps to the top. The negative `top` offset should counter this, but users are experiencing the jump.
+
+## Solutions
+
+### Fix 1: Desktop Modal Centering
+Use a flexbox wrapper for centering instead of CSS transforms on the animated element. This separates the centering logic from the animation.
+
+**Changes to `src/components/LocationSheet.tsx`:**
+- Wrap the desktop modal in a centering container using `flex items-center justify-center`
+- Remove `translate` classes from the motion.div
+- Keep the scale animation on the inner element
+
+### Fix 2: Scroll Position Restoration
+Improve the `useBodyScrollLock` hook to ensure scroll position is captured before any layout changes occur, and restored correctly when the modal closes.
+
+**Changes to `src/hooks/useBodyScrollLock.ts`:**
+- Only store scroll position when transitioning from unlocked to locked (not on every render where isLocked is true)
+- Use `requestAnimationFrame` to ensure scroll restoration happens after layout is complete
+- Add a small delay to ensure the body styles are fully cleared before restoring scroll
 
 ## Technical Details
 
-**File to modify:** `src/hooks/useBodyScrollLock.ts`
-
-Current broken flow:
+### Desktop Modal Structure (after fix)
 ```text
-Modal opens (isLocked = true):
-  - scrollY = 150 (correct)
-  - Sets body.style.top = "-150px"
-  
-Modal closes (isLocked = false):
-  - scrollY = 0 (WRONG - captured fresh, not the saved value)
-  - Tries to restore to position 0
-  - Page jumps to top
+<div className="fixed inset-0 flex items-center justify-center">  <-- Centering wrapper
+  <motion.div 
+    initial={{ opacity: 0, scale: 0.95 }}
+    animate={{ opacity: 1, scale: 1 }}
+    className="bg-card rounded-2xl w-full max-w-lg"              <-- No translate classes
+  >
+    {content}
+  </motion.div>
+</div>
 ```
 
-Fixed flow:
+### Scroll Lock Flow (after fix)
 ```text
-Modal opens (isLocked = true):
-  - scrollYRef.current = 150 (stored in ref)
-  - Sets body.style.top = "-150px"
-  
-Modal closes (isLocked = false):
-  - Uses scrollYRef.current = 150 (preserved value)
-  - Restores to position 150
-  - Page stays where you were
+Modal opens (isLocked changes from false to true):
+  - Capture window.scrollY immediately
+  - Apply body.style.top with negative offset
+  - Add modal-open class
+
+Modal closes (isLocked changes from true to false):
+  - Remove modal-open class
+  - Clear body.style.top
+  - Use requestAnimationFrame to restore scroll after layout settles
 ```
-
-## Implementation Changes
-
-**`src/hooks/useBodyScrollLock.ts`:**
-- Import `useRef` from React
-- Create a `scrollYRef` to store the scroll position when locking
-- When locking: save `window.scrollY` to the ref, then apply fixed positioning
-- When unlocking: restore scroll from the ref value, then clear the ref
-- Update cleanup function to use the stored ref value
 
 ## Files to Modify
-1. `src/hooks/useBodyScrollLock.ts` - Fix scroll position storage using useRef
+
+1. **`src/components/LocationSheet.tsx`**
+   - Add centering wrapper for desktop dialog
+   - Remove transform classes from the motion.div
+   - Keep scale animation intact
+
+2. **`src/hooks/useBodyScrollLock.ts`**
+   - Add ref to track previous locked state
+   - Only capture scroll when transitioning to locked
+   - Use requestAnimationFrame for scroll restoration
+
+3. **`src/components/CartSheet.tsx`** (apply same pattern for consistency)
+   - Use separate mobile and desktop motion.div elements
+   - Add centering wrapper for desktop version
