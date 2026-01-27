@@ -1,15 +1,15 @@
-import { useEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 
 export const useBodyScrollLock = (isLocked: boolean) => {
   const scrollYRef = useRef(0);
   const wasLockedRef = useRef(false);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     // Transitioning from unlocked to locked
     if (isLocked && !wasLockedRef.current) {
       scrollYRef.current = window.scrollY;
-      document.body.classList.add('modal-open');
       document.body.style.top = `-${scrollYRef.current}px`;
+      document.body.classList.add('modal-open');
       wasLockedRef.current = true;
     } 
     // Transitioning from locked to unlocked
