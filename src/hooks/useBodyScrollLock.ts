@@ -14,24 +14,37 @@ export const useBodyScrollLock = (isLocked: boolean) => {
     } 
     // Transitioning from locked to unlocked
     else if (!isLocked && wasLockedRef.current) {
+      // While locked, the scroll position is encoded in body.style.top (e.g. "-123px").
+      // Using it here is more reliable than window.scrollY, which is typically 0 when body is fixed.
+      const top = document.body.style.top;
+      const parsed = top ? Math.abs(parseInt(top, 10)) : scrollYRef.current;
+
       document.body.classList.remove('modal-open');
       document.body.style.top = '';
       wasLockedRef.current = false;
       
       // Use requestAnimationFrame to restore scroll after layout settles
-      const scrollY = scrollYRef.current;
-      if (scrollY > 0) {
+      requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          window.scrollTo(0, scrollY);
+          window.scrollTo(0, parsed);
         });
-      }
+      });
     }
 
     return () => {
       if (wasLockedRef.current) {
+        const top = document.body.style.top;
+        const parsed = top ? Math.abs(parseInt(top, 10)) : scrollYRef.current;
         document.body.classList.remove('modal-open');
         document.body.style.top = '';
         wasLockedRef.current = false;
+
+        // If we unmount while still locked (rare), ensure the page returns to the original scroll position.
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            window.scrollTo(0, parsed);
+          });
+        });
       }
     };
   }, [isLocked]);
