@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { X, Minus, Plus, ChevronRight, Check, Tag, Package } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { MenuItem } from '@/types/menu';
 import { useCart } from '@/context/CartContext';
 import { Button } from '@/components/ui/button';
@@ -8,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { menuItems } from '@/data/menuData';
 import { toast } from 'sonner';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { useHaptics } from '@/hooks/useHaptics';
 
 interface ItemDetailSheetProps {
   item: MenuItem | null;
@@ -17,6 +19,15 @@ interface ItemDetailSheetProps {
 
 export const ItemDetailSheet = ({ item, isOpen, onClose }: ItemDetailSheetProps) => {
   // All hooks must be called unconditionally - before any early returns
+  useBodyScrollLock(isOpen && !!item);
+  const { triggerHaptic } = useHaptics();
+  
+  // Trigger haptic on open
+  useEffect(() => {
+    if (isOpen && item) {
+      triggerHaptic('medium');
+    }
+  }, [isOpen, item, triggerHaptic]);
   useBodyScrollLock(isOpen && !!item);
   
   const { addItem } = useCart();
@@ -68,6 +79,7 @@ export const ItemDetailSheet = ({ item, isOpen, onClose }: ItemDetailSheetProps)
   };
 
   const handleAddToCart = () => {
+    triggerHaptic('success');
     addItem(item, quantity, selectedOptions, specialRequest);
     setQuantity(1);
     setSelectedOptions({});
@@ -76,32 +88,44 @@ export const ItemDetailSheet = ({ item, isOpen, onClose }: ItemDetailSheetProps)
   };
 
   const handleQuickAdd = (upsellItem: MenuItem) => {
+    triggerHaptic('light');
     addItem(upsellItem);
     toast.success(`${upsellItem.name} added`);
   };
 
   const formatPrice = (price: number) => `₦${price.toLocaleString()}`;
 
-  return (
-    <>
-      {/* Backdrop */}
-      <div 
-        className={cn(
-          "fixed inset-0 bg-foreground/50 z-50 transition-opacity duration-300 safari-fix",
-          isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
-        )}
-        onClick={onClose}
-      />
+  const handleClose = () => {
+    triggerHaptic('light');
+    onClose();
+  };
 
-      {/* Sheet */}
-      <div 
-        className={cn(
-          "fixed z-50 bg-card border border-border shadow-none transition-transform duration-300 overflow-hidden flex flex-col safari-fix",
-          "inset-x-0 bottom-0 rounded-t-3xl h-[85dvh] max-h-[85dvh]",
-          "lg:inset-y-4 lg:right-4 lg:left-auto lg:bottom-auto lg:rounded-2xl lg:w-[480px] lg:h-auto lg:max-h-[calc(100vh-2rem)]",
-          isOpen ? "translate-y-0 lg:translate-x-0" : "translate-y-full lg:translate-y-0 lg:translate-x-full"
-        )}
-      >
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-foreground/50 z-50 safari-fix"
+            onClick={handleClose}
+          />
+
+          {/* Sheet */}
+          <motion.div 
+            initial={{ y: '100%', opacity: 0.5 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: '100%', opacity: 0 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className={cn(
+              "fixed z-50 bg-card border border-border shadow-none overflow-hidden flex flex-col safari-fix",
+              "inset-x-0 bottom-0 rounded-t-3xl h-[85dvh] max-h-[85dvh]",
+              "lg:inset-y-4 lg:right-4 lg:left-auto lg:bottom-auto lg:rounded-2xl lg:w-[480px] lg:h-auto lg:max-h-[calc(100vh-2rem)]"
+            )}
+          >
         {/* Image Header */}
         <div className="relative h-48 sm:h-56 flex-shrink-0">
           <img 
@@ -111,21 +135,26 @@ export const ItemDetailSheet = ({ item, isOpen, onClose }: ItemDetailSheetProps)
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
           
-          {/* Combo savings badge */}
-          {item.isCombo && comboDetails && (
-            <div className="absolute top-3 left-3 bg-success text-success-foreground px-3 py-1.5 rounded-full text-sm font-bold flex items-center gap-1.5">
-              <Tag className="w-4 h-4" />
-              Save {comboDetails.savingsPercent}%
-            </div>
-          )}
+            {/* Combo savings badge */}
+            {item.isCombo && comboDetails && (
+              <motion.div 
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.2 }}
+                className="absolute top-3 left-3 bg-success text-success-foreground px-3 py-1.5 rounded-full text-sm font-bold flex items-center gap-1.5"
+              >
+                <Tag className="w-4 h-4" />
+                Save {comboDetails.savingsPercent}%
+              </motion.div>
+            )}
           
-          <button
-            onClick={onClose}
-            className="absolute top-3 right-3 w-9 h-9 rounded-full bg-card flex items-center justify-center"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+            <button
+              onClick={handleClose}
+              className="absolute top-3 right-3 w-9 h-9 rounded-full bg-card flex items-center justify-center active:scale-95 transition-transform"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
@@ -288,7 +317,9 @@ export const ItemDetailSheet = ({ item, isOpen, onClose }: ItemDetailSheetProps)
             </Button>
           </div>
         </div>
-      </div>
-    </>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 };

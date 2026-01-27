@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { X, Minus, Plus, ChevronRight, Star } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '@/context/CartContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -6,6 +8,7 @@ import { menuItems } from '@/data/menuData';
 import { MenuItem } from '@/types/menu';
 import { toast } from 'sonner';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { useHaptics } from '@/hooks/useHaptics';
 
 interface CartSheetProps {
   isOpen: boolean;
@@ -15,6 +18,14 @@ interface CartSheetProps {
 
 export const CartSheet = ({ isOpen, onClose, onCheckout }: CartSheetProps) => {
   useBodyScrollLock(isOpen);
+  const { triggerHaptic } = useHaptics();
+  
+  // Trigger haptic on open/close
+  useEffect(() => {
+    if (isOpen) {
+      triggerHaptic('medium');
+    }
+  }, [isOpen, triggerHaptic]);
   
   const { 
     items, 
@@ -36,40 +47,48 @@ export const CartSheet = ({ isOpen, onClose, onCheckout }: CartSheetProps) => {
     toast.success(`${item.name} added`);
   };
 
-  return (
-    <>
-      {/* Backdrop */}
-      <div 
-        className={cn(
-          "fixed inset-0 bg-foreground/50 z-50 transition-opacity duration-300 safari-fix",
-          isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
-        )}
-        onClick={onClose}
-      />
+  const handleClose = () => {
+    triggerHaptic('light');
+    onClose();
+  };
 
-      {/* Sheet - Bottom sheet on mobile, centered dialog on desktop */}
-      <div 
-        className={cn(
-          "fixed z-50 bg-card shadow-none border border-border transition-all duration-300 flex flex-col safari-fix",
-          // Mobile: bottom sheet
-          "inset-x-0 bottom-0 rounded-t-3xl h-[85vh] max-h-[85vh]",
-          isOpen ? "translate-y-0" : "translate-y-full",
-          // Desktop: centered dialog
-          "lg:inset-auto lg:top-1/2 lg:left-1/2 lg:-translate-x-1/2 lg:rounded-2xl lg:w-full lg:max-w-md lg:h-auto lg:max-h-[80vh]",
-          isOpen ? "lg:-translate-y-1/2 lg:opacity-100" : "lg:-translate-y-1/2 lg:opacity-0 lg:pointer-events-none"
-        )}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between p-5 pb-3 border-b border-border">
-          <h2 className="text-lg font-bold">Cart ({items.length})</h2>
-          <button
-            onClick={onClose}
-            className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center"
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-foreground/50 z-50 safari-fix"
+            onClick={handleClose}
+          />
+
+          {/* Sheet - Bottom sheet on mobile, centered dialog on desktop */}
+          <motion.div 
+            initial={{ y: '100%', opacity: 0.5 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: '100%', opacity: 0 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className={cn(
+              "fixed z-50 bg-card shadow-none border border-border flex flex-col safari-fix",
+              "inset-x-0 bottom-0 rounded-t-3xl h-[85vh] max-h-[85vh]",
+              "lg:inset-auto lg:top-1/2 lg:left-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-2xl lg:w-full lg:max-w-md lg:h-auto lg:max-h-[80vh]"
+            )}
+            onClick={(e) => e.stopPropagation()}
           >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 pb-3 border-b border-border">
+              <h2 className="text-lg font-bold">Cart ({items.length})</h2>
+              <button
+                onClick={handleClose}
+                className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center active:scale-95 transition-transform"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
         {/* Cart Items */}
         <div className="flex-1 overflow-y-auto">
@@ -197,7 +216,9 @@ export const CartSheet = ({ isOpen, onClose, onCheckout }: CartSheetProps) => {
             </Button>
           </div>
         )}
-      </div>
-    </>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 };
