@@ -1,20 +1,21 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 export const useBodyScrollLock = (isLocked: boolean) => {
+  const scrollYRef = useRef(0);
+
   useEffect(() => {
-    const scrollY = window.scrollY;
-    
     if (isLocked) {
+      // Store current scroll position before locking
+      scrollYRef.current = window.scrollY;
       document.body.classList.add('modal-open');
-      document.body.style.top = `-${scrollY}px`;
+      document.body.style.top = `-${scrollYRef.current}px`;
     } else {
       document.body.classList.remove('modal-open');
-      const top = document.body.style.top;
       document.body.style.top = '';
       
-      // Restore scroll position
-      if (top) {
-        window.scrollTo(0, parseInt(top || '0') * -1);
+      // Restore scroll position from ref
+      if (scrollYRef.current > 0) {
+        window.scrollTo(0, scrollYRef.current);
       }
     }
 
