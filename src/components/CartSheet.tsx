@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { menuItems } from '@/data/menuData';
 import { MenuItem } from '@/types/menu';
 import { toast } from 'sonner';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface CartSheetProps {
   isOpen: boolean;
@@ -13,6 +14,8 @@ interface CartSheetProps {
 }
 
 export const CartSheet = ({ isOpen, onClose, onCheckout }: CartSheetProps) => {
+  useBodyScrollLock(isOpen);
+  
   const { 
     items, 
     updateQuantity,

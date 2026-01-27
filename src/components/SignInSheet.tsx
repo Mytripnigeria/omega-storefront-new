@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface SignInSheetProps {
   isOpen: boolean;
@@ -11,6 +12,8 @@ interface SignInSheetProps {
 }
 
 export const SignInSheet = ({ isOpen, onClose }: SignInSheetProps) => {
+  useBodyScrollLock(isOpen);
+  
   const navigate = useNavigate();
   const [method, setMethod] = useState<'phone' | 'email' | null>(null);
   const [phone, setPhone] = useState('');

@@ -4,6 +4,7 @@ import { useCart } from '@/context/CartContext';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface LocationSheetProps {
   isOpen: boolean;
@@ -11,6 +12,8 @@ interface LocationSheetProps {
 }
 
 export const LocationSheet = ({ isOpen, onClose }: LocationSheetProps) => {
+  useBodyScrollLock(isOpen);
+  
   const { orderType, setOrderType, selectedLocation, setSelectedLocation } = useCart();
 
   const handleSelectLocation = (locationName: string) => {

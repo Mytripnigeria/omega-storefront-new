@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils';
 import { useCart } from '@/context/CartContext';
 import { useState, useMemo } from 'react';
 import { format, addDays, isSameDay, startOfToday } from 'date-fns';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface TimePickerSheetProps {
   isOpen: boolean;
@@ -28,6 +29,8 @@ const generateTimeSlots = (date: Date) => {
 };
 
 export const TimePickerSheet = ({ isOpen, onClose }: TimePickerSheetProps) => {
+  useBodyScrollLock(isOpen);
+  
   const { selectedTime, setSelectedTime } = useCart();
   const [selectedDate, setSelectedDate] = useState(startOfToday());
   const [selected, setSelected] = useState(selectedTime || 'asap');
