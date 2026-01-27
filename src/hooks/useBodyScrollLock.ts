@@ -22,13 +22,11 @@ export const useBodyScrollLock = (isLocked: boolean) => {
       document.body.classList.remove('modal-open');
       document.body.style.top = '';
       wasLockedRef.current = false;
-      
-      // Use requestAnimationFrame to restore scroll after layout settles
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          window.scrollTo(0, parsed);
-        });
-      });
+
+      // Restore scroll synchronously (useLayoutEffect runs before paint), so there is no visible jump.
+      // Force a reflow so the browser applies the "unfixed" body styles before we scroll.
+      void document.body.offsetHeight;
+      window.scrollTo(0, parsed);
     }
 
     return () => {
@@ -40,11 +38,8 @@ export const useBodyScrollLock = (isLocked: boolean) => {
         wasLockedRef.current = false;
 
         // If we unmount while still locked (rare), ensure the page returns to the original scroll position.
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            window.scrollTo(0, parsed);
-          });
-        });
+        void document.body.offsetHeight;
+        window.scrollTo(0, parsed);
       }
     };
   }, [isLocked]);
