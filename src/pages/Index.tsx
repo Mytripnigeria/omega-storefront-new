@@ -18,7 +18,7 @@ import { Footer } from '@/components/Footer';
 import { PageTransition } from '@/components/PageTransition';
 import { BannerSkeleton, MenuSectionSkeleton } from '@/components/skeletons';
 import { useSkeletonLoader } from '@/hooks/useSkeletonLoader';
-import { menuItems, categories, comboItems } from '@/data/menuData';
+import { useMenu } from '@/context/MenuContext';
 import { ComboItemCard } from '@/components/ComboItemCard';
 import { useCart } from '@/context/CartContext';
 import { MenuItem } from '@/types/menu';
@@ -28,7 +28,9 @@ import logo from '@/assets/logo.png';
 const Index = () => {
   const navigate = useNavigate();
   const { addItem, isLoggedIn } = useCart();
-  const isLoading = useSkeletonLoader(1500);
+  const { menuItems, comboItems, categories, isLoading: menuLoading } = useMenu();
+  const skeletonLoading = useSkeletonLoader(1500);
+  const isLoading = skeletonLoading || menuLoading;
 
   const [activeCategory, setActiveCategory] = useState('combos');
   const [searchQuery, setSearchQuery] = useState('');
@@ -68,7 +70,7 @@ const Index = () => {
     });
 
     return groups;
-  }, [searchQuery]);
+  }, [searchQuery, menuItems, comboItems, categories]);
 
   // Keep activeCategory in sync with scroll position (even when sections mount later)
   useEffect(() => {

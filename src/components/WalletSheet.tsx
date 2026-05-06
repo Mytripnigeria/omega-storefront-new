@@ -1,106 +1,195 @@
-import { useState } from 'react';
-import { X, Star, Wallet, ChevronRight, Gift, TrendingUp, Copy, Check, ArrowLeft } from 'lucide-react';
-import { useCart } from '@/context/CartContext';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
-import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { useEffect, useState } from "react";
+import {
+  X,
+  Star,
+  Wallet,
+  ChevronRight,
+  Gift,
+  TrendingUp,
+  ArrowLeft,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
+import { useAuth } from "@/context/AuthContext";
+import {
+  profileApi,
+  type WalletTx,
+  type PointsTx,
+  type CustomerProfile,
+} from "@/services/auth";
+import { referralsApi, type MyReferralsSummary } from "@/services/referrals";
 
 interface WalletSheetProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-type View = 'main' | 'addFunds' | 'history' | 'redeem';
+type View = "main" | "history" | "redeem";
 
-const mockHistory = [
-  { id: '1', type: 'credit', amount: 5000, description: 'Bank Transfer', date: '2024-01-08', status: 'completed' },
-  { id: '2', type: 'points', amount: 150, description: 'Order #1234 Points', date: '2024-01-07', status: 'completed' },
-  { id: '3', type: 'credit', amount: 2000, description: 'Bank Transfer', date: '2024-01-05', status: 'completed' },
-  { id: '4', type: 'points', amount: 80, description: 'Order #1230 Points', date: '2024-01-04', status: 'completed' },
-  { id: '5', type: 'debit', amount: -1500, description: 'Order #1231 Payment', date: '2024-01-03', status: 'completed' },
-];
-
-const tierColors = {
-  bronze: 'bg-primary',
-  silver: 'bg-primary',
-  gold: 'bg-primary',
-  platinum: 'bg-primary',
-};
-
-const tierNextPoints = {
+const tierNextPoints: Record<CustomerProfile["loyaltyTier"], number> = {
   bronze: 500,
   silver: 1500,
   gold: 3000,
   platinum: Infinity,
 };
 
+const formatDate = (s: string) =>
+  new Date(s).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+
 export const WalletSheet = ({ isOpen, onClose }: WalletSheetProps) => {
   useBodyScrollLock(isOpen);
-  
-  const { user } = useCart();
-  const [view, setView] = useState<View>('main');
-  const [copied, setCopied] = useState(false);
-  
-  const nextTier = user.tier === 'platinum' ? null : (
-    user.tier === 'bronze' ? 'Silver' :
-    user.tier === 'silver' ? 'Gold' : 'Platinum'
-  );
-  
-  const pointsToNext = tierNextPoints[user.tier] - user.loyaltyPoints;
-  const progress = user.tier === 'platinum' ? 100 : 
-    (user.loyaltyPoints / tierNextPoints[user.tier]) * 100;
+  const { profile, isAuthenticated } = useAuth();
 
-  const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    toast.success('Copied to clipboard');
-    setTimeout(() => setCopied(false), 2000);
-  };
+  const [view, setView] = useState<View>("main");
+  const [walletTx, setWalletTx] = useState<WalletTx[]>([]);
+  const [pointsTx, setPointsTx] = useState<PointsTx[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [referralSummary, setReferralSummary] =
+    useState<MyReferralsSummary | null>(null);
+
+  useEffect(() => {
+    if (!isOpen || !isAuthenticated) return;
+    let cancelled = false;
+    referralsApi
+      .mySummary()
+      .then((r) => {
+        if (!cancelled) setReferralSummary(r);
+      })
+      .catch(() => {
+        // non-critical — pending rewards just won't show
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, isAuthenticated]);
+
+  useEffect(() => {
+    if (!isOpen || view !== "history" || !isAuthenticated) return;
+    let cancelled = false;
+    setHistoryLoading(true);
+    Promise.all([profileApi.myWallet(), profileApi.myPoints()])
+      .then(([wallet, points]) => {
+        if (cancelled) return;
+        setWalletTx(wallet);
+        setPointsTx(points);
+      })
+      .catch((e: Error) => {
+        if (!cancelled) toast.error(e.message ?? "Couldn't load history");
+      })
+      .finally(() => {
+        if (!cancelled) setHistoryLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, view, isAuthenticated]);
 
   const handleClose = () => {
-    setView('main');
+    setView("main");
     onClose();
   };
 
+  if (!profile) {
+    return (
+      <>
+        <div
+          className={cn(
+            "fixed inset-0 bg-foreground/50 z-50 transition-opacity duration-300 safari-fix",
+            isOpen ? "opacity-100" : "opacity-0 pointer-events-none",
+          )}
+          onClick={handleClose}
+        />
+        <div
+          className={cn(
+            "fixed z-50 bg-card shadow-none border border-border transition-all duration-300 flex flex-col safari-fix",
+            "inset-x-0 bottom-0 rounded-t-3xl max-h-[40vh]",
+            isOpen ? "translate-y-0" : "translate-y-full",
+            "lg:inset-auto lg:top-1/2 lg:left-1/2 lg:-translate-x-1/2 lg:rounded-2xl lg:w-full lg:max-w-md lg:max-h-[40vh]",
+            isOpen
+              ? "lg:-translate-y-1/2 lg:opacity-100"
+              : "lg:-translate-y-1/2 lg:opacity-0 lg:pointer-events-none",
+          )}
+        >
+          <div className="flex flex-col items-center justify-center text-center p-8 gap-3 flex-1">
+            <Wallet className="w-10 h-10 text-muted-foreground" />
+            <h3 className="text-lg font-bold">Sign in to view wallet</h3>
+            <Button onClick={handleClose} className="rounded-full">
+              Close
+            </Button>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  const tier = profile.loyaltyTier;
+  const points = profile.points;
+  const wallet = profile.walletBalance;
+
+  const nextTier =
+    tier === "platinum"
+      ? null
+      : tier === "bronze"
+        ? "Silver"
+        : tier === "silver"
+          ? "Gold"
+          : "Platinum";
+  const cap = tierNextPoints[tier];
+  const pointsToNext = cap === Infinity ? 0 : cap - points;
+  const progress = cap === Infinity ? 100 : Math.min(100, (points / cap) * 100);
+
   const renderMainView = () => (
     <>
-      {/* Wallet Balance Card */}
       <div className="bg-primary rounded-2xl p-5 text-primary-foreground mb-4">
         <div className="flex items-center gap-2 mb-3 opacity-80">
           <Wallet className="w-4 h-4" />
           <span className="text-sm font-medium">Wallet Balance</span>
         </div>
-        <p className="text-3xl font-bold mb-4">₦{user.walletBalance.toLocaleString()}</p>
-        <Button 
-          onClick={() => setView('addFunds')}
-          variant="secondary" 
-          className="w-full bg-primary-foreground/20 hover:bg-primary-foreground/30 text-primary-foreground border-0"
-        >
-          Add Funds
-          <ChevronRight className="w-4 h-4 ml-1" />
-        </Button>
+        <p className="text-3xl font-bold mb-1">
+          ₦{Number(wallet).toLocaleString()}
+        </p>
+        <p className="text-xs opacity-70">
+          Use at checkout to pay for your order.
+        </p>
+        {referralSummary &&
+          referralSummary.rewardType === "wallet_credit" &&
+          referralSummary.totalRewardPending > 0 && (
+            <div className="mt-3 pt-3 border-t border-primary-foreground/20 flex items-center justify-between text-xs opacity-90">
+              <span>Pending from referrals</span>
+              <span className="font-semibold">
+                ₦{referralSummary.totalRewardPending.toLocaleString()}
+              </span>
+            </div>
+          )}
       </div>
 
-      {/* Points Card */}
-      <div className={cn("rounded-2xl p-5 text-primary-foreground mb-4", tierColors[user.tier])}>
+      <div className="bg-primary rounded-2xl p-5 text-primary-foreground mb-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2 opacity-80">
             <Star className="w-4 h-4" />
-            <span className="text-sm font-medium capitalize">{user.tier}</span>
+            <span className="text-sm font-medium capitalize">{tier}</span>
           </div>
           <span className="text-xs opacity-60">Loyalty Points</span>
         </div>
-        <p className="text-3xl font-bold mb-3">{user.loyaltyPoints.toLocaleString()}</p>
-        
+        <p className="text-3xl font-bold mb-3">
+          {Number(points).toLocaleString()}
+        </p>
         {nextTier && (
           <div>
             <div className="flex items-center justify-between text-xs mb-2 opacity-80">
-              <span>{pointsToNext} pts to {nextTier}</span>
+              <span>
+                {pointsToNext.toLocaleString()} pts to {nextTier}
+              </span>
               <span>{Math.round(progress)}%</span>
             </div>
             <div className="h-1.5 bg-primary-foreground/20 rounded-full overflow-hidden">
-              <div 
+              <div
                 className="h-full bg-primary-foreground rounded-full transition-all duration-500"
                 style={{ width: `${progress}%` }}
               />
@@ -109,17 +198,16 @@ export const WalletSheet = ({ isOpen, onClose }: WalletSheetProps) => {
         )}
       </div>
 
-      {/* Quick Actions */}
       <div className="grid grid-cols-2 gap-3 mb-4">
-        <button 
-          onClick={() => setView('redeem')}
+        <button
+          onClick={() => setView("redeem")}
           className="flex flex-col items-center gap-2 p-4 bg-secondary rounded-xl hover:bg-secondary/80 transition-colors"
         >
           <Gift className="w-5 h-5" />
           <span className="font-medium text-sm">Redeem Points</span>
         </button>
-        <button 
-          onClick={() => setView('history')}
+        <button
+          onClick={() => setView("history")}
           className="flex flex-col items-center gap-2 p-4 bg-secondary rounded-xl hover:bg-secondary/80 transition-colors"
         >
           <TrendingUp className="w-5 h-5" />
@@ -127,113 +215,131 @@ export const WalletSheet = ({ isOpen, onClose }: WalletSheetProps) => {
         </button>
       </div>
 
-      {/* Rewards Info */}
-      <div className="bg-secondary rounded-xl p-4">
+      <div className="bg-secondary rounded-xl p-4 mb-4">
         <h3 className="font-semibold text-sm mb-3">How to Earn Points</h3>
         <div className="space-y-2.5 text-sm">
           <div className="flex items-center gap-3">
-            <span>💰</span>
-            <span className="text-muted-foreground">10 pts per ₦100 spent</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span>🎁</span>
-            <span className="text-muted-foreground">500 pts birthday bonus</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span>👥</span>
-            <span className="text-muted-foreground">200 pts per referral</span>
-          </div>
-        </div>
-      </div>
-    </>
-  );
-
-  const renderAddFundsView = () => (
-    <>
-      <button
-        onClick={() => setView('main')}
-        className="flex items-center gap-1 text-sm text-muted-foreground mb-4"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back
-      </button>
-
-      <h3 className="text-lg font-bold mb-4">Add Funds via Transfer</h3>
-      
-      <div className="bg-secondary rounded-xl p-4 space-y-4">
-        <p className="text-sm text-muted-foreground">
-          Transfer to this account to instantly credit your wallet.
-        </p>
-
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Bank</span>
-            <span className="font-medium">OPay</span>
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Account Number</span>
-            <div className="flex items-center gap-2">
-              <span className="font-mono font-bold">8012345678</span>
-              <button
-                onClick={() => handleCopy('8012345678')}
-                className="p-1.5 rounded-lg hover:bg-background transition-colors"
-              >
-                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Account Name</span>
-            <span className="font-medium">Mr. Jollof Foods</span>
-          </div>
-        </div>
-      </div>
-
-      <p className="text-xs text-muted-foreground text-center mt-4">
-        Wallet will be credited automatically within 1-3 minutes after transfer.
-      </p>
-    </>
-  );
-
-  const renderHistoryView = () => (
-    <>
-      <button
-        onClick={() => setView('main')}
-        className="flex items-center gap-1 text-sm text-muted-foreground mb-4"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back
-      </button>
-
-      <h3 className="text-lg font-bold mb-4">Transaction History</h3>
-      
-      <div className="space-y-2">
-        {mockHistory.map((item) => (
-          <div key={item.id} className="flex items-center justify-between p-3 bg-secondary rounded-xl">
-            <div>
-              <p className="font-medium text-sm">{item.description}</p>
-              <p className="text-xs text-muted-foreground">{item.date}</p>
-            </div>
-            <span className={cn(
-              "font-bold text-sm",
-              item.type === 'debit' ? 'text-destructive' : 'text-foreground'
-            )}>
-              {item.type === 'points' ? `+${item.amount} pts` : 
-               item.type === 'debit' ? `-₦${Math.abs(item.amount).toLocaleString()}` :
-               `+₦${item.amount.toLocaleString()}`}
+            <span className="text-muted-foreground">
+              Earn points on every paid order — your tier determines the rate.
             </span>
           </div>
-        ))}
+          <div className="flex items-center gap-3">
+            <span className="text-muted-foreground">
+              Apply points at checkout to discount your order.
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-muted-foreground">
+              Refer a friend — earn a bonus when they place their first paid order.
+            </span>
+          </div>
+        </div>
       </div>
+
+      {referralSummary &&
+        referralSummary.rewardType === "points" &&
+        referralSummary.totalRewardPending > 0 && (
+          <div className="bg-secondary rounded-xl p-4 flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">
+              Pending points from referrals
+            </span>
+            <span className="font-semibold">
+              {referralSummary.totalRewardPending.toLocaleString()} pts
+            </span>
+          </div>
+        )}
     </>
   );
+
+  const renderHistoryView = () => {
+    const merged: Array<{
+      id: string;
+      label: string;
+      sub: string;
+      createdAt: string;
+      sign: "+" | "-";
+      amount: string;
+      tone: "credit" | "debit" | "neutral";
+    }> = [
+      ...walletTx.map((t) => ({
+        id: `w-${t.id}`,
+        label: t.description,
+        sub: formatDate(t.createdAt),
+        createdAt: t.createdAt,
+        sign: (t.type === "credit" ? "+" : "-") as "+" | "-",
+        amount: `₦${Number(t.amount).toLocaleString()}`,
+        tone: (t.type === "credit" ? "credit" : "debit") as "credit" | "debit",
+      })),
+      ...pointsTx.map((t) => ({
+        id: `p-${t.id}`,
+        label: t.description,
+        sub: formatDate(t.createdAt),
+        createdAt: t.createdAt,
+        sign: (t.type === "earned" ? "+" : "-") as "+" | "-",
+        amount: `${Number(t.points).toLocaleString()} pts`,
+        tone: "neutral" as const,
+      })),
+    ].sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+
+    return (
+      <>
+        <button
+          onClick={() => setView("main")}
+          className="flex items-center gap-1 text-sm text-muted-foreground mb-4"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back
+        </button>
+
+        <h3 className="text-lg font-bold mb-4">Transaction History</h3>
+
+        {historyLoading ? (
+          <p className="text-sm text-muted-foreground text-center py-8">
+            Loading…
+          </p>
+        ) : merged.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-8">
+            No activity yet.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {merged.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center justify-between p-3 bg-secondary rounded-xl"
+              >
+                <div>
+                  <p className="font-medium text-sm">{item.label}</p>
+                  <p className="text-xs text-muted-foreground">{item.sub}</p>
+                </div>
+                <span
+                  className={cn(
+                    "font-bold text-sm",
+                    item.tone === "debit"
+                      ? "text-destructive"
+                      : item.tone === "credit"
+                        ? "text-success"
+                        : "text-foreground",
+                  )}
+                >
+                  {item.sign}
+                  {item.amount}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </>
+    );
+  };
 
   const renderRedeemView = () => (
     <>
       <button
-        onClick={() => setView('main')}
+        onClick={() => setView("main")}
         className="flex items-center gap-1 text-sm text-muted-foreground mb-4"
       >
         <ArrowLeft className="w-4 h-4" />
@@ -246,10 +352,12 @@ export const WalletSheet = ({ isOpen, onClose }: WalletSheetProps) => {
         </div>
         <h3 className="text-lg font-bold mb-2">Redeem Your Points</h3>
         <p className="text-muted-foreground text-sm mb-4">
-          You have <strong>{user.loyaltyPoints.toLocaleString()} points</strong>
+          You have <strong>{Number(points).toLocaleString()} points</strong>{" "}
+          (worth ₦{Math.floor(points / 10).toLocaleString()})
         </p>
         <p className="text-sm text-muted-foreground">
-          Order any item and apply your points at checkout to get discounts on your order.
+          Add items to your cart and apply your points at checkout — 10 points
+          = ₦1 off your order.
         </p>
         <Button onClick={handleClose} className="mt-6 rounded-full">
           Start Ordering
@@ -260,29 +368,26 @@ export const WalletSheet = ({ isOpen, onClose }: WalletSheetProps) => {
 
   return (
     <>
-      {/* Backdrop */}
-      <div 
+      <div
         className={cn(
           "fixed inset-0 bg-foreground/50 z-50 transition-opacity duration-300 safari-fix",
-          isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+          isOpen ? "opacity-100" : "opacity-0 pointer-events-none",
         )}
         onClick={handleClose}
       />
 
-      {/* Sheet - Bottom sheet on mobile, centered dialog on desktop */}
-      <div 
+      <div
         className={cn(
           "fixed z-50 bg-card shadow-none border border-border transition-all duration-300 flex flex-col safari-fix",
-          // Mobile: bottom sheet
           "inset-x-0 bottom-0 rounded-t-3xl h-[85vh] max-h-[85vh]",
           isOpen ? "translate-y-0" : "translate-y-full",
-          // Desktop: centered dialog
           "lg:inset-auto lg:top-1/2 lg:left-1/2 lg:-translate-x-1/2 lg:rounded-2xl lg:w-full lg:max-w-md lg:h-auto lg:max-h-[80vh]",
-          isOpen ? "lg:-translate-y-1/2 lg:opacity-100" : "lg:-translate-y-1/2 lg:opacity-0 lg:pointer-events-none"
+          isOpen
+            ? "lg:-translate-y-1/2 lg:opacity-100"
+            : "lg:-translate-y-1/2 lg:opacity-0 lg:pointer-events-none",
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-center justify-between p-5 pb-3">
           <h2 className="text-lg font-bold">Wallet & Rewards</h2>
           <button
@@ -294,10 +399,9 @@ export const WalletSheet = ({ isOpen, onClose }: WalletSheetProps) => {
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 safe-bottom-pad">
-          {view === 'main' && renderMainView()}
-          {view === 'addFunds' && renderAddFundsView()}
-          {view === 'history' && renderHistoryView()}
-          {view === 'redeem' && renderRedeemView()}
+          {view === "main" && renderMainView()}
+          {view === "history" && renderHistoryView()}
+          {view === "redeem" && renderRedeemView()}
         </div>
       </div>
     </>

@@ -1,6 +1,6 @@
-import { MenuItem } from '@/types/menu';
-import { MenuItemCard } from './MenuItemCard';
-import { categories } from '@/data/menuData';
+import { MenuItem } from "@/types/menu";
+import { MenuItemCard } from "./MenuItemCard";
+import { useMenu } from "@/context/MenuContext";
 
 interface MenuSectionProps {
   categoryId: string;
@@ -9,9 +9,15 @@ interface MenuSectionProps {
   onQuickAdd: (item: MenuItem) => void;
 }
 
-export const MenuSection = ({ categoryId, items, onItemClick, onQuickAdd }: MenuSectionProps) => {
-  const category = categories.find(c => c.id === categoryId);
-  
+export const MenuSection = ({
+  categoryId,
+  items,
+  onItemClick,
+  onQuickAdd,
+}: MenuSectionProps) => {
+  const { categories } = useMenu();
+  const category = categories.find((c) => c.id === categoryId);
+
   if (!category || items.length === 0) return null;
 
   return (
@@ -19,9 +25,9 @@ export const MenuSection = ({ categoryId, items, onItemClick, onQuickAdd }: Menu
       <h2 className="text-lg font-bold mb-3 px-4 lg:px-0">
         {category.name} {category.emoji}
       </h2>
-      
+
       <div className="px-4 lg:px-0">
-        {items.map(item => (
+        {items.map((item) => (
           <MenuItemCard
             key={item.id}
             item={item}

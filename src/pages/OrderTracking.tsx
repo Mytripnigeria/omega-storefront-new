@@ -1,71 +1,173 @@
-import { useState, useEffect } from 'react';
-import { ArrowLeft, MapPin, Clock, Phone, CheckCircle2, Circle, ChefHat, Package, Bike, Home } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { PageTransition } from '@/components/PageTransition';
-import { OrderReviewSheet } from '@/components/OrderReviewSheet';
-import { useHaptics } from '@/hooks/useHaptics';
-import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
+import { useEffect, useMemo, useState } from "react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  ChefHat,
+  Package,
+  Bike,
+  Home,
+  XCircle,
+} from "lucide-react";
+import { useNavigate, useParams } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { PageTransition } from "@/components/PageTransition";
+import { OrderReviewSheet } from "@/components/OrderReviewSheet";
+import { useHaptics } from "@/hooks/useHaptics";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { ordersApi, type StorefrontOrder } from "@/services/orders";
+import { reviewsApi } from "@/services/reviews";
 
-type OrderStep = 'confirmed' | 'preparing' | 'ready' | 'out-for-delivery' | 'delivered';
-
-const steps = [
-  { id: 'confirmed', label: 'Order Confirmed', icon: CheckCircle2, description: 'Your order has been received' },
-  { id: 'preparing', label: 'Preparing', icon: ChefHat, description: 'Our chefs are making your food' },
-  { id: 'ready', label: 'Ready', icon: Package, description: 'Your order is ready' },
-  { id: 'out-for-delivery', label: 'On the way', icon: Bike, description: 'Your order is out for delivery' },
-  { id: 'delivered', label: 'Delivered', icon: Home, description: 'Enjoy your meal!' },
+const STEPS = [
+  {
+    id: "pending",
+    label: "Order Received",
+    icon: CheckCircle2,
+    description: "We've got your order",
+  },
+  {
+    id: "preparing",
+    label: "Preparing",
+    icon: ChefHat,
+    description: "Our chefs are at it",
+  },
+  {
+    id: "ready",
+    label: "Ready",
+    icon: Package,
+    description: "Order is ready",
+  },
+  {
+    id: "served",
+    label: "On the way / Picked up",
+    icon: Bike,
+    description: "Heading your way",
+  },
+  {
+    id: "completed",
+    label: "Completed",
+    icon: Home,
+    description: "Enjoy your meal!",
+  },
 ];
 
 const OrderTracking = () => {
   const navigate = useNavigate();
-  const [currentStep, setCurrentStep] = useState<OrderStep>('confirmed');
-  const [estimatedTime, setEstimatedTime] = useState(25);
-  const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const { id } = useParams<{ id?: string }>();
   const { triggerHaptic } = useHaptics();
 
-  // Simulate order progress
+  const [order, setOrder] = useState<StorefrontOrder | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [hasReview, setHasReview] = useState<boolean | null>(null);
+  const [isReviewOpen, setIsReviewOpen] = useState(false);
+
   useEffect(() => {
-    const stepOrder: OrderStep[] = ['confirmed', 'preparing', 'ready', 'out-for-delivery', 'delivered'];
-    let currentIndex = 0;
+    if (!id) {
+      setIsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    let lastStatus: StorefrontOrder["status"] | null = null;
 
-    const interval = setInterval(() => {
-      currentIndex++;
-      if (currentIndex < stepOrder.length) {
-        setCurrentStep(stepOrder[currentIndex]);
-        setEstimatedTime(prev => Math.max(0, prev - 8));
-        triggerHaptic('light');
-        
-        // Show review sheet when delivered
-        if (stepOrder[currentIndex] === 'delivered') {
-          triggerHaptic('success');
-          // Small delay before showing review modal
-          setTimeout(() => {
-            setIsReviewOpen(true);
-          }, 1000);
+    const tick = async () => {
+      try {
+        const fresh = await ordersApi.get(id);
+        if (cancelled) return;
+        if (lastStatus && fresh.status !== lastStatus) {
+          triggerHaptic("light");
         }
-      } else {
-        clearInterval(interval);
+        lastStatus = fresh.status;
+        setOrder(fresh);
+        setError(null);
+      } catch (e) {
+        if (!cancelled) setError((e as Error).message ?? "Couldn't load order");
+      } finally {
+        if (!cancelled) setIsLoading(false);
       }
-    }, 5000);
+    };
 
-    return () => clearInterval(interval);
-  }, [triggerHaptic]);
+    void tick();
+    const interval = window.setInterval(() => {
+      if (lastStatus === "completed" || lastStatus === "cancelled") return;
+      void tick();
+    }, 8000);
 
-  const handleReviewSubmit = (rating: number, review: string) => {
-    toast.success(`Thanks for your ${rating}-star review!`);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [id, triggerHaptic]);
+
+  useEffect(() => {
+    if (!order || hasReview !== null) return;
+    if (order.status !== "completed" && order.status !== "served") return;
+    void reviewsApi
+      .forOrder(order.id)
+      .then((r) => {
+        setHasReview(!!r);
+        if (!r) setTimeout(() => setIsReviewOpen(true), 1200);
+      })
+      .catch(() => setHasReview(false));
+  }, [order, hasReview]);
+
+  const handleReviewSubmit = async (rating: number, comment: string) => {
+    if (!order) return;
+    try {
+      await reviewsApi.submit(order.id, {
+        rating,
+        comment: comment || undefined,
+      });
+      toast.success(`Thanks for your ${rating}-star review!`);
+      setHasReview(true);
+    } catch (e) {
+      toast.error((e as Error).message ?? "Couldn't submit review");
+    }
   };
 
-  const currentStepIndex = steps.findIndex(s => s.id === currentStep);
+  const currentStepIndex = useMemo(() => {
+    if (!order) return 0;
+    if (order.status === "cancelled") return -1;
+    const idx = STEPS.findIndex((s) => s.id === order.status);
+    return idx === -1 ? 0 : idx;
+  }, [order]);
+
+  if (isLoading) {
+    return (
+      <PageTransition>
+        <div className="min-h-screen flex items-center justify-center">
+          <p className="text-muted-foreground">Loading order…</p>
+        </div>
+      </PageTransition>
+    );
+  }
+
+  if (!id || !order) {
+    return (
+      <PageTransition>
+        <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center">
+          <Package className="w-12 h-12 text-muted-foreground mb-3" />
+          <h1 className="text-lg font-bold mb-1">No order to track</h1>
+          <p className="text-sm text-muted-foreground mb-4">
+            {error ?? "Place an order from the menu to start tracking."}
+          </p>
+          <Button onClick={() => navigate("/")}>Browse menu</Button>
+        </div>
+      </PageTransition>
+    );
+  }
+
+  const isCancelled = order.status === "cancelled";
 
   return (
     <PageTransition>
       <div className="min-h-screen bg-background pb-8">
-        {/* Header */}
         <header className="sticky top-0 z-40 bg-background border-b border-border">
           <div className="max-w-7xl mx-auto flex items-center h-14 px-4 lg:px-6">
-            <button onClick={() => navigate('/')} className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+            <button
+              onClick={() => navigate("/")}
+              className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+            >
               <ArrowLeft className="w-5 h-5" />
               <span>Back</span>
             </button>
@@ -74,142 +176,182 @@ const OrderTracking = () => {
 
         <div className="max-w-7xl mx-auto px-4 lg:px-6 py-6">
           <div className="lg:grid lg:grid-cols-3 lg:gap-8">
-            {/* Left Column - Status & Progress */}
             <div className="lg:col-span-2 space-y-6">
-              {/* Order Status */}
               <div className="text-center py-8">
                 <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4 animate-pulse">
-                  {currentStep === 'delivered' ? (
+                  {isCancelled ? (
+                    <XCircle className="w-10 h-10 text-destructive" />
+                  ) : order.status === "completed" ? (
                     <CheckCircle2 className="w-10 h-10 text-primary" />
                   ) : (
                     <span className="text-4xl">
-                      {currentStep === 'confirmed' && '✅'}
-                      {currentStep === 'preparing' && '👨‍🍳'}
-                      {currentStep === 'ready' && '📦'}
-                      {currentStep === 'out-for-delivery' && '🛵'}
+                      {order.status === "pending" && "✅"}
+                      {order.status === "preparing" && "👨‍🍳"}
+                      {order.status === "ready" && "📦"}
+                      {order.status === "served" &&
+                        (order.isDelivery ? "🛵" : "🤝")}
                     </span>
                   )}
                 </div>
                 <h1 className="text-2xl font-bold mb-2">
-                  {steps.find(s => s.id === currentStep)?.label}
+                  {isCancelled
+                    ? "Order Cancelled"
+                    : STEPS[currentStepIndex]?.label ?? "Pending"}
                 </h1>
                 <p className="text-muted-foreground">
-                  {steps.find(s => s.id === currentStep)?.description}
+                  {isCancelled
+                    ? "Your order was cancelled."
+                    : STEPS[currentStepIndex]?.description}
                 </p>
-                {currentStep !== 'delivered' && (
-                  <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full">
-                    <Clock className="w-4 h-4 text-primary" />
-                    <span className="font-semibold">{estimatedTime} min remaining</span>
-                  </div>
-                )}
+                <p className="text-xs text-muted-foreground mt-2">
+                  Order #{order.orderNumber}
+                </p>
               </div>
 
-              {/* Progress Steps */}
-              <div className="bg-card rounded-2xl p-6 shadow-card">
-                <h2 className="font-bold mb-6">Order Progress</h2>
-                <div className="space-y-1">
-                  {steps.map((step, index) => {
-                    const isCompleted = index <= currentStepIndex;
-                    const isCurrent = index === currentStepIndex;
-                    const Icon = step.icon;
+              {!isCancelled && (
+                <div className="bg-card rounded-2xl p-6 shadow-card">
+                  <h2 className="font-bold mb-6">Order Progress</h2>
+                  <div className="space-y-1">
+                    {STEPS.map((step, index) => {
+                      const isCompleted = index <= currentStepIndex;
+                      const isCurrent = index === currentStepIndex;
+                      const Icon = step.icon;
 
-                    return (
-                      <div key={step.id} className="flex gap-4">
-                        <div className="flex flex-col items-center">
-                          <div className={cn(
-                            "w-10 h-10 rounded-full flex items-center justify-center transition-all",
-                            isCompleted ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
-                          )}>
-                            {isCompleted ? (
-                              <CheckCircle2 className="w-5 h-5" />
-                            ) : (
+                      return (
+                        <div key={step.id} className="flex gap-4">
+                          <div className="flex flex-col items-center">
+                            <div
+                              className={cn(
+                                "w-10 h-10 rounded-full flex items-center justify-center transition-all",
+                                isCompleted
+                                  ? "bg-primary text-primary-foreground"
+                                  : "bg-secondary text-muted-foreground",
+                                isCurrent && "scale-110",
+                              )}
+                            >
                               <Icon className="w-5 h-5" />
+                            </div>
+                            {index !== STEPS.length - 1 && (
+                              <div
+                                className={cn(
+                                  "w-0.5 h-12 transition-colors",
+                                  isCompleted ? "bg-primary" : "bg-border",
+                                )}
+                              />
                             )}
                           </div>
-                          {index < steps.length - 1 && (
-                            <div className={cn(
-                              "w-0.5 h-12 transition-all",
-                              index < currentStepIndex ? "bg-primary" : "bg-border"
-                            )} />
-                          )}
+                          <div className="pb-8 flex-1">
+                            <p
+                              className={cn(
+                                "font-medium",
+                                isCompleted
+                                  ? "text-foreground"
+                                  : "text-muted-foreground",
+                              )}
+                            >
+                              {step.label}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {step.description}
+                            </p>
+                          </div>
                         </div>
-                        <div className="pt-2 pb-6">
-                          <h3 className={cn(
-                            "font-semibold",
-                            isCurrent && "text-primary"
-                          )}>{step.label}</h3>
-                          <p className="text-sm text-muted-foreground">{step.description}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
-            {/* Right Column - Order Details */}
-            <div className="mt-6 lg:mt-0">
-              <div className="lg:sticky lg:top-20 space-y-4">
-                {/* Order Details */}
-                <div className="bg-card rounded-2xl p-6 shadow-card space-y-4">
-                  <h2 className="font-bold">Order Details</h2>
-                  
-                  <div className="flex items-center gap-3 py-3 border-b border-border">
-                    <MapPin className="w-5 h-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">Pickup Location</p>
-                      <p className="text-sm text-muted-foreground">Downtown - 123 Main Street</p>
+            <div className="lg:col-span-1 space-y-6 mt-6 lg:mt-0">
+              <div className="bg-card rounded-2xl p-4">
+                <h2 className="font-bold mb-3">Summary</h2>
+                <div className="space-y-2 text-sm">
+                  {order.items.map((it) => (
+                    <div key={it.id} className="flex justify-between">
+                      <span>
+                        {it.quantity}× {it.name}
+                      </span>
+                      <span>₦{Number(it.subtotal).toLocaleString()}</span>
                     </div>
+                  ))}
+                  <div className="flex justify-between border-t pt-2 mt-2">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span>₦{Number(order.subtotal).toLocaleString()}</span>
                   </div>
-
-                  <div className="flex items-center gap-3 py-3 border-b border-border">
-                    <Phone className="w-5 h-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">Contact Restaurant</p>
-                      <p className="text-sm text-muted-foreground">(555) 123-4567</p>
+                  {order.deliveryFee > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Delivery</span>
+                      <span>₦{Number(order.deliveryFee).toLocaleString()}</span>
                     </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Tax</span>
+                    <span>₦{Number(order.taxAmount).toLocaleString()}</span>
                   </div>
-
-                  <div className="pt-2">
-                    <h3 className="font-medium mb-3">Order Summary</h3>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">1x Signature Burger</span>
-                        <span>$12.99</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">1x Truffle Fries</span>
-                        <span>$7.99</span>
-                      </div>
-                      <div className="flex justify-between pt-2 border-t border-border font-semibold">
-                        <span>Total</span>
-                        <span>$22.62</span>
-                      </div>
+                  {order.tipAmount > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Tip</span>
+                      <span>₦{Number(order.tipAmount).toLocaleString()}</span>
                     </div>
+                  )}
+                  {order.couponDiscount > 0 && (
+                    <div className="flex justify-between text-green-600">
+                      <span>Coupon ({order.couponCode})</span>
+                      <span>
+                        −₦{Number(order.couponDiscount).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-semibold border-t pt-2 mt-2">
+                    <span>Total</span>
+                    <span>₦{Number(order.total).toLocaleString()}</span>
                   </div>
-                </div>
-
-                {/* Help Section */}
-                <div className="flex gap-3">
-                  <Button variant="outline" className="flex-1">
-                    Need Help?
-                  </Button>
-                  <Button variant="outline" className="flex-1">
-                    Cancel Order
-                  </Button>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Payment</span>
+                    <span className="capitalize">
+                      {order.paymentChannel} · {order.paymentStatus ?? "n/a"}
+                    </span>
+                  </div>
                 </div>
               </div>
+
+              {order.isDelivery && order.deliveryAddress && (
+                <div className="bg-card rounded-2xl p-4">
+                  <h2 className="font-bold mb-2">Delivery to</h2>
+                  <p className="text-sm">
+                    {String(
+                      (order.deliveryAddress as Record<string, unknown>)
+                        .line1 ?? "",
+                    )}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {String(
+                      (order.deliveryAddress as Record<string, unknown>)
+                        .city ?? "",
+                    )}
+                  </p>
+                </div>
+              )}
+
+              {hasReview === false && order.status === "completed" && (
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => setIsReviewOpen(true)}
+                >
+                  Leave a review
+                </Button>
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Review Sheet */}
       <OrderReviewSheet
         isOpen={isReviewOpen}
         onClose={() => setIsReviewOpen(false)}
         onSubmit={handleReviewSubmit}
-        orderId="ORD-2024-001"
       />
     </PageTransition>
   );

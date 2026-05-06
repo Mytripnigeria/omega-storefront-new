@@ -6,7 +6,7 @@ import { useCart } from '@/context/CartContext';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { menuItems } from '@/data/menuData';
+import { useMenu } from '@/context/MenuContext';
 import { toast } from 'sonner';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -34,13 +34,15 @@ export const ItemDetailSheet = ({ item, isOpen, onClose }: ItemDetailSheetProps)
   const [selectedOptions, setSelectedOptions] = useState<{ [key: string]: string[] }>({});
   const [specialRequest, setSpecialRequest] = useState('');
 
+  const { menuItems } = useMenu();
+
   // Get upsell items (same category or random)
   const upsellItems = useMemo(() => {
     if (!item || item.isCombo) return [];
     return menuItems
       .filter(i => i.id !== item.id && i.category === item.category)
       .slice(0, 3);
-  }, [item]);
+  }, [item, menuItems]);
 
   // Combo calculations
   const comboDetails = useMemo(() => {

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Search, X } from 'lucide-react';
-import { categories } from '@/data/menuData';
+import { useMenu } from '@/context/MenuContext';
 import { cn } from '@/lib/utils';
 
 interface CategoryTabsProps {
@@ -21,6 +21,7 @@ export const CategoryTabs = ({
   const activeButtonRef = useRef<HTMLButtonElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const { categories } = useMenu();
 
   // Scroll active category into view
   useEffect(() => {

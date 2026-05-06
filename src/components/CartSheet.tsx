@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '@/context/CartContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { menuItems } from '@/data/menuData';
+import { useMenu } from '@/context/MenuContext';
 import { MenuItem } from '@/types/menu';
 import { toast } from 'sonner';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
@@ -27,13 +27,14 @@ export const CartSheet = ({ isOpen, onClose, onCheckout }: CartSheetProps) => {
     }
   }, [isOpen, triggerHaptic]);
   
-  const { 
-    items, 
+  const {
+    items,
     updateQuantity,
     addItem,
-    subtotal, 
-    pointsToEarn 
+    subtotal,
+    pointsToEarn
   } = useCart();
+  const { menuItems } = useMenu();
 
   // Get suggested items (random items not in cart)
   const cartItemIds = items.map(item => item.menuItem.id);

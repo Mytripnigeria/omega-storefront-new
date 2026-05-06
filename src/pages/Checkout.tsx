@@ -1,93 +1,298 @@
-import { useState } from 'react';
-import { ArrowLeft, MapPin, Clock, Ticket, ShoppingCart, ChevronRight, CreditCard, Wallet, Star, Check, X } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { useCart } from '@/context/CartContext';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { PageTransition } from '@/components/PageTransition';
-import { CheckoutSkeleton } from '@/components/skeletons';
-import { useSkeletonLoader } from '@/hooks/useSkeletonLoader';
-import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { useEffect, useMemo, useState } from "react";
+import {
+  ArrowLeft,
+  MapPin,
+  Clock,
+  Ticket,
+  ShoppingCart,
+  ChevronRight,
+  CreditCard,
+  Wallet,
+  Star,
+  Check,
+  X,
+  Plus,
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useCart } from "@/context/CartContext";
+import { useAuth } from "@/context/AuthContext";
+import { useMenu } from "@/context/MenuContext";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { PageTransition } from "@/components/PageTransition";
+import { CheckoutSkeleton } from "@/components/skeletons";
+import { useSkeletonLoader } from "@/hooks/useSkeletonLoader";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import { ordersApi, type PaymentInit } from "@/services/orders";
+import { couponsApi } from "@/services/coupons";
+import { addressesApi, type CustomerAddress } from "@/services/addresses";
+import {
+  paymentMethodsApi,
+  type CustomerPaymentMethod,
+} from "@/services/payment-methods";
 
-type PaymentMethod = 'card' | 'wallet' | 'points';
+type PaymentMethod = "paystack" | "wallet" | "points" | "cash";
+
+interface PaystackInline {
+  setup(opts: {
+    key: string;
+    email: string;
+    amount: number;
+    ref: string;
+    onSuccess: (tx: { reference: string }) => void;
+    onCancel?: () => void;
+    onClose?: () => void;
+  }): { openIframe(): void };
+}
+
+declare global {
+  interface Window {
+    PaystackPop?: PaystackInline;
+  }
+}
+
+const PAYSTACK_SCRIPT = "https://js.paystack.co/v1/inline.js";
+
+function ensurePaystackLoaded(): Promise<PaystackInline> {
+  return new Promise((resolve, reject) => {
+    if (window.PaystackPop) {
+      resolve(window.PaystackPop);
+      return;
+    }
+    const existing = document.querySelector<HTMLScriptElement>(
+      `script[src="${PAYSTACK_SCRIPT}"]`,
+    );
+    const onLoad = () => {
+      if (window.PaystackPop) resolve(window.PaystackPop);
+      else reject(new Error("Failed to load Paystack"));
+    };
+    if (existing) {
+      existing.addEventListener("load", onLoad, { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = PAYSTACK_SCRIPT;
+    script.async = true;
+    script.onload = onLoad;
+    script.onerror = () => reject(new Error("Failed to load Paystack"));
+    document.body.appendChild(script);
+  });
+}
 
 const Checkout = () => {
   const navigate = useNavigate();
-  const isLoading = useSkeletonLoader(1500);
-  const { 
-    items, 
-    orderType, 
-    selectedLocation,
-    subtotal, 
-    tax, 
-    total, 
+  const skeletonLoading = useSkeletonLoader(800);
+  const {
+    items,
+    orderType,
+    storeId,
+    selectedAddressId,
+    setSelectedAddressId,
+    selectedPaymentMethodId,
+    setSelectedPaymentMethodId,
+    selectedTime,
+    subtotal,
+    tax,
+    total,
     pointsToEarn,
-    user,
-    clearCart 
+    clearCart,
   } = useCart();
+  const { profile, isAuthenticated } = useAuth();
+  const { store } = useMenu();
 
   const [tipPercent, setTipPercent] = useState(0);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card');
-  const [couponCode, setCouponCode] = useState('');
-  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number } | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("paystack");
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string;
+    discount: number;
+  } | null>(null);
   const [showCouponInput, setShowCouponInput] = useState(false);
-  
-  const tipAmount = subtotal * (tipPercent / 100);
-  const couponDiscount = appliedCoupon?.discount || 0;
-  const finalTotal = total + tipAmount - couponDiscount;
+  const [redeemPoints, setRedeemPoints] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const [formData, setFormData] = useState({
-    phone: '',
-    firstName: '',
-    lastName: '',
-    email: '',
-    cardNumber: '',
-    expiry: '',
-    cvc: '',
-  });
+  const [addresses, setAddresses] = useState<CustomerAddress[]>([]);
+  const [savedCards, setSavedCards] = useState<CustomerPaymentMethod[]>([]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
+  // Load saved data when authenticated
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    void addressesApi.list().then(setAddresses).catch(() => undefined);
+    void paymentMethodsApi.list().then(setSavedCards).catch(() => undefined);
+  }, [isAuthenticated]);
 
-  const handleApplyCoupon = () => {
+  // Default to first address when delivery + nothing selected
+  useEffect(() => {
+    if (orderType !== "delivery" || selectedAddressId) return;
+    const def = addresses.find((a) => a.isDefault) ?? addresses[0];
+    if (def) setSelectedAddressId(def.id);
+  }, [addresses, orderType, selectedAddressId, setSelectedAddressId]);
+
+  const tipAmount = Math.round(subtotal * (tipPercent / 100));
+  const couponDiscount = appliedCoupon?.discount ?? 0;
+  const pointsBalance = profile?.points ?? 0;
+  const pointsValue = Math.floor(pointsBalance / 10); // 10pts = ₦1
+  const pointsRedeemed = redeemPoints ? Math.min(pointsBalance, total * 10) : 0;
+  const pointsRedemptionValue = Math.floor(pointsRedeemed / 10);
+
+  const finalTotal = useMemo(() => {
+    return Math.max(
+      0,
+      total + tipAmount - couponDiscount - pointsRedemptionValue,
+    );
+  }, [total, tipAmount, couponDiscount, pointsRedemptionValue]);
+
+  const selectedAddress = addresses.find((a) => a.id === selectedAddressId);
+
+  const handleApplyCoupon = async () => {
     if (!couponCode.trim()) return;
-    
-    // Mock coupon validation - in a real app this would call an API
-    const validCoupons: Record<string, number> = {
-      'SAVE10': 1000,
-      'WELCOME': 500,
-      'JOLLOF20': 2000,
-    };
-    
-    const upperCode = couponCode.toUpperCase().trim();
-    if (validCoupons[upperCode]) {
-      setAppliedCoupon({ code: upperCode, discount: validCoupons[upperCode] });
+    if (!isAuthenticated) {
+      toast.error("Please sign in to use coupons");
+      return;
+    }
+    try {
+      const couponItems = items.map((i) => ({
+        productId: i.menuItem.isCombo ? undefined : i.menuItem.id,
+        categoryId: i.menuItem.category,
+        lineTotal: i.menuItem.price * i.quantity,
+      }));
+      const res = await couponsApi.validate(
+        couponCode.trim(),
+        subtotal,
+        couponItems,
+      );
+      if (!res.valid) {
+        toast.error(res.reason ?? "Invalid coupon code");
+        return;
+      }
+      setAppliedCoupon({
+        code: res.coupon!.code,
+        discount: res.discountAmount ?? 0,
+      });
+      setCouponCode("");
       setShowCouponInput(false);
-      setCouponCode('');
-      toast.success(`Coupon applied! You save ₦${validCoupons[upperCode].toLocaleString()}`);
-    } else {
-      toast.error('Invalid coupon code');
+      toast.success(
+        `Coupon applied! You save ₦${(res.discountAmount ?? 0).toLocaleString()}`,
+      );
+    } catch (e) {
+      toast.error((e as Error).message ?? "Failed to apply coupon");
     }
   };
 
   const handleRemoveCoupon = () => {
     setAppliedCoupon(null);
-    toast.success('Coupon removed');
+    toast.success("Coupon removed");
   };
 
-  const handlePlaceOrder = () => {
-    toast.success('Order placed successfully!', {
-      description: 'You will receive a confirmation shortly.',
-    });
-    clearCart();
-    navigate('/order-tracking');
+  const handlePlaceOrder = async () => {
+    if (items.length === 0) {
+      toast.error("Your cart is empty");
+      return;
+    }
+    if (!storeId) {
+      toast.error("Pick a store first");
+      return;
+    }
+    if (!isAuthenticated || !profile) {
+      toast.error("Please sign in to place an order");
+      navigate("/login");
+      return;
+    }
+    if (orderType === "delivery" && !selectedAddressId) {
+      toast.error("Please select a delivery address");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await ordersApi.place({
+        storeId,
+        isDelivery: orderType === "delivery",
+        deliveryAddressId:
+          orderType === "delivery"
+            ? selectedAddressId ?? undefined
+            : undefined,
+        scheduledFor:
+          selectedTime && selectedTime !== "ASAP" ? selectedTime : undefined,
+        items: items.map((i) => ({
+          productId: i.menuItem.isCombo ? undefined : i.menuItem.id,
+          comboId: i.menuItem.isCombo ? i.menuItem.id : undefined,
+          name: i.menuItem.name,
+          quantity: i.quantity,
+          unitPrice: i.menuItem.price,
+          variation: i.selectedOptions ?? undefined,
+          notes: i.specialRequest ?? undefined,
+        })),
+        paymentChannel: paymentMethod,
+        savedPaymentMethodId:
+          paymentMethod === "paystack" && selectedPaymentMethodId
+            ? selectedPaymentMethodId
+            : undefined,
+        couponCode: appliedCoupon?.code,
+        tipAmount,
+        pointsToRedeem: pointsRedeemed > 0 ? pointsRedeemed : undefined,
+        notes: undefined,
+      });
+
+      const orderId = res.order.id;
+
+      if (res.payment?.requiresAction) {
+        await runPaystack(orderId, res.payment);
+      } else {
+        toast.success("Order placed");
+        clearCart();
+        navigate(`/order-tracking/${orderId}`);
+      }
+    } catch (e) {
+      toast.error((e as Error).message ?? "Couldn't place order");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const pointsValue = Math.floor(user.loyaltyPoints / 10); // 10 points = ₦1
+  const runPaystack = async (orderId: string, init: PaymentInit) => {
+    try {
+      const popup = await ensurePaystackLoaded();
+      if (!init.publicKey || !init.reference) {
+        throw new Error("Paystack details missing");
+      }
+      const handler = popup.setup({
+        key: init.publicKey,
+        email: profile?.email ?? `customer-${profile?.id}@no-email.local`,
+        amount: Math.round(finalTotal * 100),
+        ref: init.reference,
+        onSuccess: async ({ reference }) => {
+          try {
+            await ordersApi.verifyPayment(orderId, reference);
+            toast.success("Payment successful");
+            clearCart();
+            navigate(`/order-tracking/${orderId}`);
+          } catch (e) {
+            toast.error((e as Error).message ?? "Couldn't verify payment");
+          }
+        },
+        onClose: () => {
+          toast.info("Payment cancelled");
+        },
+      });
+      handler.openIframe();
+    } catch (e) {
+      toast.error(
+        (e as Error).message ??
+          "Failed to start payment. Please try again.",
+      );
+    }
+  };
+
+  if (skeletonLoading) {
+    return (
+      <PageTransition>
+        <CheckoutSkeleton />
+      </PageTransition>
+    );
+  }
 
   if (items.length === 0) {
     return (
@@ -97,439 +302,351 @@ const Checkout = () => {
             <ShoppingCart className="w-6 h-6 text-muted-foreground" />
           </div>
           <h2 className="text-lg font-bold mb-1">Your cart is empty</h2>
-          <p className="text-muted-foreground text-sm mb-4">Add items to checkout</p>
-          <Button onClick={() => navigate('/')} className="rounded-full">Browse Menu</Button>
+          <p className="text-muted-foreground text-sm mb-4">
+            Add items to checkout
+          </p>
+          <Button onClick={() => navigate("/")}>Browse menu</Button>
         </div>
-      </PageTransition>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <PageTransition>
-        <CheckoutSkeleton />
       </PageTransition>
     );
   }
 
   return (
     <PageTransition>
-      <div className="min-h-screen bg-background pb-28 lg:pb-8">
+      <div className="min-h-screen bg-background pb-32">
         {/* Header */}
         <header className="sticky top-0 z-40 bg-background border-b border-border">
-          <div className="flex items-center h-14 px-4 max-w-7xl mx-auto lg:px-6">
-            <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+          <div className="max-w-3xl mx-auto flex items-center h-14 px-4">
+            <button
+              onClick={() => navigate(-1)}
+              className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+            >
               <ArrowLeft className="w-5 h-5" />
+              <span>Checkout</span>
             </button>
-            <h1 className="text-lg font-bold ml-4">Checkout</h1>
           </div>
         </header>
 
-        <div className="max-w-7xl mx-auto px-4 lg:px-6 py-5">
-          <div className="lg:grid lg:grid-cols-3 lg:gap-8">
-            {/* Main Content - Left Column */}
-            <div className="lg:col-span-2 space-y-5">
-              {/* Order Summary Card */}
-              <div className="bg-card rounded-2xl border border-border overflow-hidden">
-                <div className="p-4 space-y-3">
-                  <div className="flex items-center gap-3">
-                    <MapPin className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    <div className="flex-1">
-                      <p className="font-medium text-sm">
-                        {orderType === 'pickup' ? 'Pick up from' : 'Deliver to'}
+        <main className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+          {/* Order details */}
+          <section className="bg-card rounded-2xl p-4">
+            <h3 className="font-semibold mb-3">
+              {orderType === "delivery" ? "Delivering to" : "Picking up at"}
+            </h3>
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center shrink-0">
+                <MapPin className="w-5 h-5 text-muted-foreground" />
+              </div>
+              <div className="flex-1 min-w-0">
+                {orderType === "delivery" ? (
+                  selectedAddress ? (
+                    <>
+                      <p className="font-medium">{selectedAddress.label}</p>
+                      <p className="text-muted-foreground text-xs">
+                        {selectedAddress.line1}
+                        {selectedAddress.city && `, ${selectedAddress.city}`}
                       </p>
-                      <p className="text-muted-foreground text-xs">{selectedLocation}</p>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                  </div>
-                  
-                  <div className="flex items-center gap-3">
-                    <Clock className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    <div className="flex-1">
-                      <p className="font-medium text-sm">Today, ASAP</p>
-                      <p className="text-muted-foreground text-xs">15-25 min</p>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                  </div>
-                </div>
-
-                <div className="border-t border-border">
-                  {appliedCoupon ? (
-                    <div className="flex items-center justify-between p-4">
-                      <div className="flex items-center gap-3">
-                        <Ticket className="w-4 h-4 text-success" />
-                        <div>
-                          <span className="font-medium text-sm text-success">{appliedCoupon.code}</span>
-                          <p className="text-xs text-muted-foreground">-₦{appliedCoupon.discount.toLocaleString()} applied</p>
-                        </div>
-                      </div>
-                      <button 
-                        onClick={handleRemoveCoupon}
-                        className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center hover:bg-muted transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ) : showCouponInput ? (
-                    <div className="p-4 space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Input
-                          placeholder="Enter coupon code"
-                          value={couponCode}
-                          onChange={(e) => setCouponCode(e.target.value)}
-                          className="h-10 flex-1"
-                          onKeyDown={(e) => e.key === 'Enter' && handleApplyCoupon()}
-                        />
-                        <Button onClick={handleApplyCoupon} size="sm" className="h-10">
-                          Apply
-                        </Button>
-                      </div>
-                      <button 
-                        onClick={() => { setShowCouponInput(false); setCouponCode(''); }}
-                        className="text-xs text-muted-foreground hover:text-foreground"
-                      >
-                        Cancel
-                      </button>
-                    </div>
+                    </>
                   ) : (
-                    <button 
-                      onClick={() => setShowCouponInput(true)}
-                      className="flex items-center justify-between w-full p-4 hover:bg-secondary/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <Ticket className="w-4 h-4 text-muted-foreground" />
-                        <span className="font-medium text-sm">Add coupon</span>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                    </button>
-                  )}
-                </div>
-
-                <div className="border-t border-border">
-                  <button className="flex items-center justify-between w-full p-4 hover:bg-secondary/50 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <ShoppingCart className="w-4 h-4 text-muted-foreground" />
-                      <span className="font-medium text-sm">{items.length} item{items.length > 1 ? 's' : ''}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-sm">₦{subtotal.toLocaleString()}</span>
-                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                    </div>
-                  </button>
-                </div>
-              </div>
-
-              {/* Tip Section */}
-              <div className="bg-card rounded-2xl border border-border p-4">
-                <h2 className="font-semibold mb-3">Add a tip</h2>
-                <div className="flex gap-2">
-                  {[0, 10, 15, 20].map((percent) => (
-                    <button
-                      key={percent}
-                      onClick={() => setTipPercent(percent)}
-                      className={cn(
-                        "flex-1 py-2.5 rounded-full text-sm font-medium border transition-all",
-                        tipPercent === percent 
-                          ? "bg-primary text-primary-foreground border-primary" 
-                          : "border-border hover:bg-secondary"
-                      )}
-                    >
-                      {percent === 0 ? 'None' : `${percent}%`}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Your Information */}
-              <div className="bg-card rounded-2xl border border-border p-4">
-                <h2 className="font-semibold mb-4">Your information</h2>
-                
-                <div className="space-y-3">
-                  <div>
-                    <Label htmlFor="phone" className="text-xs">Phone number</Label>
-                    <Input
-                      id="phone"
-                      name="phone"
-                      type="tel"
-                      placeholder="+234 800 000 0000"
-                      value={formData.phone}
-                      onChange={handleInputChange}
-                      className="mt-1 h-11"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label htmlFor="firstName" className="text-xs">First name</Label>
-                      <Input
-                        id="firstName"
-                        name="firstName"
-                        placeholder="First name"
-                        value={formData.firstName}
-                        onChange={handleInputChange}
-                        className="mt-1 h-11"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="lastName" className="text-xs">Last name</Label>
-                      <Input
-                        id="lastName"
-                        name="lastName"
-                        placeholder="Last name"
-                        value={formData.lastName}
-                        onChange={handleInputChange}
-                        className="mt-1 h-11"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="email" className="text-xs">Email</Label>
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      placeholder="you@example.com"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      className="mt-1 h-11"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Payment Method */}
-              <div className="bg-card rounded-2xl border border-border p-4">
-                <h2 className="font-semibold mb-4">Payment method</h2>
-                
-                <div className="space-y-2">
-                  {/* Card Option */}
-                  <button
-                    onClick={() => setPaymentMethod('card')}
-                    className={cn(
-                      "w-full flex items-center gap-3 p-3 rounded-xl border transition-all",
-                      paymentMethod === 'card' 
-                        ? "border-primary bg-primary/5" 
-                        : "border-border hover:bg-secondary/50"
-                    )}
-                  >
-                    <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center">
-                      <CreditCard className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 text-left">
-                      <p className="font-medium text-sm">Card</p>
-                      <p className="text-xs text-muted-foreground">Visa, Mastercard, Verve</p>
-                    </div>
-                    {paymentMethod === 'card' && (
-                      <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                        <Check className="w-3 h-3 text-primary-foreground" />
-                      </div>
-                    )}
-                  </button>
-
-                  {/* Wallet Option */}
-                  <button
-                    onClick={() => setPaymentMethod('wallet')}
-                    className={cn(
-                      "w-full flex items-center gap-3 p-3 rounded-xl border transition-all",
-                      paymentMethod === 'wallet' 
-                        ? "border-primary bg-primary/5" 
-                        : "border-border hover:bg-secondary/50"
-                    )}
-                  >
-                    <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center">
-                      <Wallet className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 text-left">
-                      <p className="font-medium text-sm">Wallet</p>
-                      <p className="text-xs text-muted-foreground">Balance: ₦{user.walletBalance.toLocaleString()}</p>
-                    </div>
-                    {paymentMethod === 'wallet' && (
-                      <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                        <Check className="w-3 h-3 text-primary-foreground" />
-                      </div>
-                    )}
-                  </button>
-
-                  {/* Points Option */}
-                  <button
-                    onClick={() => setPaymentMethod('points')}
-                    className={cn(
-                      "w-full flex items-center gap-3 p-3 rounded-xl border transition-all",
-                      paymentMethod === 'points' 
-                        ? "border-primary bg-primary/5" 
-                        : "border-border hover:bg-secondary/50"
-                    )}
-                  >
-                    <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center">
-                      <Star className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 text-left">
-                      <p className="font-medium text-sm">Points</p>
-                      <p className="text-xs text-muted-foreground">{user.loyaltyPoints.toLocaleString()} pts (₦{pointsValue.toLocaleString()})</p>
-                    </div>
-                    {paymentMethod === 'points' && (
-                      <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                        <Check className="w-3 h-3 text-primary-foreground" />
-                      </div>
-                    )}
-                  </button>
-                </div>
-
-                {/* Card Details (show only if card selected) */}
-                {paymentMethod === 'card' && (
-                  <div className="mt-4 pt-4 border-t border-border space-y-3">
-                    <div>
-                      <Label htmlFor="cardNumber" className="text-xs">Card number</Label>
-                      <div className="relative">
-                        <Input
-                          id="cardNumber"
-                          name="cardNumber"
-                          placeholder="0000 0000 0000 0000"
-                          value={formData.cardNumber}
-                          onChange={handleInputChange}
-                          className="mt-1 h-11 pl-11"
-                        />
-                        <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 mt-0.5 w-5 h-5 text-muted-foreground" />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label htmlFor="expiry" className="text-xs">Expiry</Label>
-                        <Input
-                          id="expiry"
-                          name="expiry"
-                          placeholder="MM/YY"
-                          value={formData.expiry}
-                          onChange={handleInputChange}
-                          className="mt-1 h-11"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="cvc" className="text-xs">CVC</Label>
-                        <Input
-                          id="cvc"
-                          name="cvc"
-                          placeholder="123"
-                          value={formData.cvc}
-                          onChange={handleInputChange}
-                          className="mt-1 h-11"
-                        />
-                      </div>
-                    </div>
-                  </div>
+                    <p className="text-muted-foreground text-sm">
+                      Choose a delivery address
+                    </p>
+                  )
+                ) : store ? (
+                  <>
+                    <p className="font-medium">{store.name}</p>
+                    <p className="text-muted-foreground text-xs">
+                      {store.address}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-muted-foreground text-sm">
+                    Choose a pickup location
+                  </p>
                 )}
               </div>
             </div>
+            <div className="flex items-center gap-2 mt-3 text-sm text-muted-foreground">
+              <Clock className="w-4 h-4" />
+              <span>{selectedTime || "ASAP"}</span>
+            </div>
+          </section>
 
-            {/* Right Column - Order Summary (Desktop) */}
-            <div className="hidden lg:block">
-              <div className="sticky top-20 space-y-4">
-                {/* Points Earned Banner */}
-                <div className="flex items-center gap-2 px-4 py-3 bg-primary/10 rounded-xl">
-                  <Star className="w-4 h-4 text-primary" />
-                  <span className="text-sm">
-                    You'll earn <strong>{pointsToEarn} points</strong>
+          {/* Items */}
+          <section className="bg-card rounded-2xl p-4">
+            <h3 className="font-semibold mb-3">Items</h3>
+            <div className="space-y-3">
+              {items.map((item) => (
+                <div key={item.id} className="flex justify-between text-sm">
+                  <span>
+                    {item.quantity}× {item.menuItem.name}
+                  </span>
+                  <span className="font-medium">
+                    ₦{(item.menuItem.price * item.quantity).toLocaleString()}
                   </span>
                 </div>
+              ))}
+            </div>
+          </section>
 
-                {/* Order Summary */}
-                <div className="bg-card rounded-2xl border border-border p-4 space-y-2">
-                  <h2 className="font-bold mb-3">Order Summary</h2>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Subtotal</span>
-                    <span>₦{subtotal.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Tax</span>
-                    <span>₦{tax.toLocaleString()}</span>
-                  </div>
-                  {tipAmount > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Tip</span>
-                      <span>₦{tipAmount.toLocaleString()}</span>
-                    </div>
-                  )}
-                  {appliedCoupon && (
-                    <div className="flex justify-between text-sm text-success">
-                      <span>Coupon ({appliedCoupon.code})</span>
-                      <span>-₦{appliedCoupon.discount.toLocaleString()}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between font-bold pt-2 border-t border-border">
-                    <span>Total</span>
-                    <span>₦{finalTotal.toLocaleString()}</span>
-                  </div>
+          {/* Coupon */}
+          <section className="bg-card rounded-2xl p-4">
+            {appliedCoupon ? (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Ticket className="w-4 h-4 text-primary" />
+                  <span className="font-medium">{appliedCoupon.code}</span>
+                  <span className="text-sm text-muted-foreground">
+                    −₦{appliedCoupon.discount.toLocaleString()}
+                  </span>
                 </div>
-
-                {/* Desktop Place Order Button */}
-                <Button
-                  onClick={handlePlaceOrder}
-                  className="w-full h-12 text-base font-semibold rounded-full"
-                  size="lg"
+                <button
+                  onClick={handleRemoveCoupon}
+                  className="text-muted-foreground hover:text-foreground"
                 >
-                  Place order · ₦{finalTotal.toLocaleString()}
-                </Button>
-                <p className="text-xs text-muted-foreground text-center">
-                  By placing this order, you agree to our Terms & Policies.
-                </p>
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-            </div>
-          </div>
+            ) : showCouponInput ? (
+              <div className="space-y-2">
+                <Label>Coupon code</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value)}
+                    placeholder="ENTER CODE"
+                  />
+                  <Button onClick={handleApplyCoupon}>Apply</Button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowCouponInput(true)}
+                className="flex items-center justify-between w-full text-sm"
+              >
+                <span className="flex items-center gap-2">
+                  <Ticket className="w-4 h-4" />
+                  Have a promo code?
+                </span>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </button>
+            )}
+          </section>
 
-          {/* Mobile Order Summary */}
-          <div className="lg:hidden space-y-4 mt-5">
-            {/* Points Earned Banner */}
-            <div className="flex items-center gap-2 px-4 py-3 bg-primary/10 rounded-xl">
-              <Star className="w-4 h-4 text-primary" />
-              <span className="text-sm">
-                You'll earn <strong>{pointsToEarn} points</strong>
-              </span>
+          {/* Tip */}
+          <section className="bg-card rounded-2xl p-4">
+            <h3 className="font-semibold mb-3">Add tip</h3>
+            <div className="grid grid-cols-4 gap-2">
+              {[0, 5, 10, 15].map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setTipPercent(p)}
+                  className={cn(
+                    "py-2 rounded-lg border text-sm font-medium",
+                    tipPercent === p
+                      ? "border-primary bg-primary/5"
+                      : "border-border",
+                  )}
+                >
+                  {p === 0 ? "None" : `${p}%`}
+                </button>
+              ))}
             </div>
+          </section>
 
-            {/* Order Summary */}
-            <div className="bg-card rounded-2xl border border-border p-4 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Subtotal</span>
-                <span>₦{subtotal.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Tax</span>
-                <span>₦{tax.toLocaleString()}</span>
-              </div>
-              {tipAmount > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Tip</span>
-                  <span>₦{tipAmount.toLocaleString()}</span>
+          {/* Payment method */}
+          <section className="bg-card rounded-2xl p-4">
+            <h3 className="font-semibold mb-3">Payment</h3>
+            <div className="space-y-2">
+              <button
+                onClick={() => setPaymentMethod("paystack")}
+                className={cn(
+                  "flex items-center justify-between w-full p-3 rounded-lg border",
+                  paymentMethod === "paystack"
+                    ? "border-primary bg-primary/5"
+                    : "border-border",
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <CreditCard className="w-5 h-5" />
+                  <div className="text-left">
+                    <p className="font-medium">Card via Paystack</p>
+                    <p className="text-xs text-muted-foreground">
+                      Visa, Mastercard, Verve, transfer
+                    </p>
+                  </div>
+                </div>
+                {paymentMethod === "paystack" && (
+                  <Check className="w-4 h-4 text-primary" />
+                )}
+              </button>
+
+              {savedCards.length > 0 && paymentMethod === "paystack" && (
+                <div className="ml-8 space-y-1">
+                  {savedCards.map((c) => {
+                    const isSelected = selectedPaymentMethodId === c.id;
+                    return (
+                      <button
+                        key={c.id}
+                        onClick={() =>
+                          setSelectedPaymentMethodId(isSelected ? null : c.id)
+                        }
+                        className={cn(
+                          "flex items-center justify-between w-full p-2 rounded-lg text-sm border",
+                          isSelected
+                            ? "border-primary bg-primary/5"
+                            : "border-border",
+                        )}
+                      >
+                        <span className="capitalize">
+                          {c.brand} •••• {c.last4}
+                        </span>
+                        {isSelected && (
+                          <Check className="w-4 h-4 text-primary" />
+                        )}
+                      </button>
+                    );
+                  })}
+                  <p className="text-xs text-muted-foreground">
+                    Skip selection to enter a new card
+                  </p>
                 </div>
               )}
-              {appliedCoupon && (
-                <div className="flex justify-between text-sm text-success">
-                  <span>Coupon ({appliedCoupon.code})</span>
-                  <span>-₦{appliedCoupon.discount.toLocaleString()}</span>
-                </div>
-              )}
-              <div className="flex justify-between font-bold pt-2 border-t border-border">
-                <span>Total</span>
-                <span>₦{finalTotal.toLocaleString()}</span>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        {/* Mobile Bottom CTA */}
-        <div className="fixed bottom-0 inset-x-0 p-4 bg-background border-t border-border lg:hidden safe-bottom">
-          <Button
-            onClick={handlePlaceOrder}
-            className="w-full h-14 text-base font-semibold rounded-full"
-            size="lg"
-          >
-            Place order · ₦{finalTotal.toLocaleString()}
-          </Button>
-          <p className="text-xs text-muted-foreground text-center mt-2">
-            By placing this order, you agree to our Terms & Policies.
-          </p>
+              {profile && profile.walletBalance > 0 && (
+                <button
+                  onClick={() => setPaymentMethod("wallet")}
+                  className={cn(
+                    "flex items-center justify-between w-full p-3 rounded-lg border",
+                    paymentMethod === "wallet"
+                      ? "border-primary bg-primary/5"
+                      : "border-border",
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <Wallet className="w-5 h-5" />
+                    <div className="text-left">
+                      <p className="font-medium">Wallet</p>
+                      <p className="text-xs text-muted-foreground">
+                        Balance: ₦{profile.walletBalance.toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                  {paymentMethod === "wallet" && (
+                    <Check className="w-4 h-4 text-primary" />
+                  )}
+                </button>
+              )}
+
+              <button
+                onClick={() => setPaymentMethod("cash")}
+                className={cn(
+                  "flex items-center justify-between w-full p-3 rounded-lg border",
+                  paymentMethod === "cash"
+                    ? "border-primary bg-primary/5"
+                    : "border-border",
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <Wallet className="w-5 h-5" />
+                  <div className="text-left">
+                    <p className="font-medium">
+                      Cash on {orderType === "delivery" ? "delivery" : "pickup"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Pay when your order arrives
+                    </p>
+                  </div>
+                </div>
+                {paymentMethod === "cash" && (
+                  <Check className="w-4 h-4 text-primary" />
+                )}
+              </button>
+            </div>
+          </section>
+
+          {/* Loyalty points */}
+          {profile && profile.points > 0 && (
+            <section className="bg-card rounded-2xl p-4">
+              <button
+                onClick={() => setRedeemPoints(!redeemPoints)}
+                className="flex items-center justify-between w-full"
+              >
+                <div className="flex items-center gap-3">
+                  <Star className="w-5 h-5" />
+                  <div className="text-left">
+                    <p className="font-medium">
+                      Redeem {profile.points.toLocaleString()} points
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Worth up to ₦{pointsValue.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+                <div
+                  className={cn(
+                    "w-6 h-6 rounded-md border flex items-center justify-center",
+                    redeemPoints
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border",
+                  )}
+                >
+                  {redeemPoints && <Check className="w-3 h-3" />}
+                </div>
+              </button>
+            </section>
+          )}
+
+          {/* Summary */}
+          <section className="bg-card rounded-2xl p-4 space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Subtotal</span>
+              <span>₦{subtotal.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Tax (7.5%)</span>
+              <span>₦{tax.toLocaleString()}</span>
+            </div>
+            {tipAmount > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Tip</span>
+                <span>₦{tipAmount.toLocaleString()}</span>
+              </div>
+            )}
+            {couponDiscount > 0 && (
+              <div className="flex justify-between text-sm text-green-600">
+                <span>Coupon ({appliedCoupon?.code})</span>
+                <span>−₦{couponDiscount.toLocaleString()}</span>
+              </div>
+            )}
+            {pointsRedemptionValue > 0 && (
+              <div className="flex justify-between text-sm text-green-600">
+                <span>Points</span>
+                <span>−₦{pointsRedemptionValue.toLocaleString()}</span>
+              </div>
+            )}
+            <div className="flex justify-between font-semibold pt-2 border-t">
+              <span>Total</span>
+              <span>₦{finalTotal.toLocaleString()}</span>
+            </div>
+            <p className="text-xs text-muted-foreground pt-1">
+              You'll earn {pointsToEarn.toLocaleString()} loyalty points
+            </p>
+          </section>
+        </main>
+
+        <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border p-4 z-40">
+          <div className="max-w-3xl mx-auto">
+            <Button
+              className="w-full h-12 text-base"
+              onClick={handlePlaceOrder}
+              disabled={submitting}
+            >
+              {submitting
+                ? "Placing order..."
+                : `Place order · ₦${finalTotal.toLocaleString()}`}
+            </Button>
+          </div>
         </div>
       </div>
     </PageTransition>

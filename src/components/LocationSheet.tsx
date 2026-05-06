@@ -1,13 +1,19 @@
-import { useEffect } from 'react';
-import { X, Search, Clock, MapPin } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { X, Search, Clock, MapPin, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { locations } from '@/data/menuData';
 import { useCart } from '@/context/CartContext';
+import { useAuth } from '@/context/AuthContext';
+import { useMenu } from '@/context/MenuContext';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { useHaptics } from '@/hooks/useHaptics';
+import {
+  addressesApi,
+  type CustomerAddress,
+} from '@/services/addresses';
+import { toast } from 'sonner';
 
 interface LocationSheetProps {
   isOpen: boolean;
@@ -24,12 +30,72 @@ export const LocationSheet = ({ isOpen, onClose }: LocationSheetProps) => {
       triggerHaptic('medium');
     }
   }, [isOpen, triggerHaptic]);
-  const { orderType, setOrderType, selectedLocation, setSelectedLocation } = useCart();
+  const {
+    orderType,
+    setOrderType,
+    storeId,
+    setStoreId,
+    selectedAddressId,
+    setSelectedAddressId,
+  } = useCart();
+  const { isAuthenticated } = useAuth();
+  const { stores } = useMenu();
+  const [addresses, setAddresses] = useState<CustomerAddress[]>([]);
+  const [addressLine, setAddressLine] = useState("");
+  const [search, setSearch] = useState("");
 
-  const handleSelectLocation = (locationName: string) => {
+  useEffect(() => {
+    if (!isOpen || !isAuthenticated || orderType !== "delivery") return;
+    void addressesApi
+      .list()
+      .then(setAddresses)
+      .catch(() => setAddresses([]));
+  }, [isOpen, isAuthenticated, orderType]);
+
+  const filteredStores = stores.filter((s) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return (
+      s.name.toLowerCase().includes(q) ||
+      s.address.toLowerCase().includes(q)
+    );
+  });
+
+  const handleSelectStore = (id: string) => {
     triggerHaptic('success');
-    setSelectedLocation(locationName);
+    setStoreId(id);
     onClose();
+  };
+
+  const handleSelectAddress = (id: string) => {
+    triggerHaptic('success');
+    setSelectedAddressId(id);
+    onClose();
+  };
+
+  const handleQuickAddAddress = async () => {
+    const trimmed = addressLine.trim();
+    if (!trimmed) return;
+    if (!isAuthenticated) {
+      toast.error("Please sign in to save your delivery address");
+      return;
+    }
+    try {
+      const created = await addressesApi.create({
+        label: "Delivery",
+        line1: trimmed,
+        city: "Lagos",
+        country: "Nigeria",
+        isDefault: addresses.length === 0,
+      });
+      setAddresses((prev) => [created, ...prev]);
+      setSelectedAddressId(created.id);
+      setAddressLine("");
+      toast.success("Address saved");
+      onClose();
+    } catch (e) {
+      toast.error((e as Error).message ?? "Couldn't save address");
+    }
   };
 
   const handleClose = () => {
@@ -77,13 +143,27 @@ export const LocationSheet = ({ isOpen, onClose }: LocationSheetProps) => {
           </button>
         </div>
 
-        {/* Search */}
+        {/* Search / address input */}
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-          <Input 
-            placeholder={orderType === 'pickup' ? "Search locations..." : "Enter your address..."}
-            className="pl-12 h-12 rounded-xl bg-secondary border-0"
-          />
+          {orderType === "pickup" ? (
+            <Input
+              placeholder="Search locations..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-12 h-12 rounded-xl bg-secondary border-0"
+            />
+          ) : (
+            <Input
+              placeholder="Enter your address..."
+              value={addressLine}
+              onChange={(e) => setAddressLine(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void handleQuickAddAddress();
+              }}
+              className="pl-12 h-12 rounded-xl bg-secondary border-0"
+            />
+          )}
         </div>
       </div>
 
@@ -91,51 +171,114 @@ export const LocationSheet = ({ isOpen, onClose }: LocationSheetProps) => {
       <div className="flex-1 overflow-y-auto px-6 safe-bottom-pad">
         {orderType === 'pickup' ? (
           <div className="space-y-3">
-            {locations.map(location => (
-              <div 
-                key={location.id}
-                className={cn(
-                  "flex items-center justify-between p-4 rounded-2xl border-2 transition-colors cursor-pointer",
-                  selectedLocation === location.name 
-                    ? "border-primary bg-primary/5" 
-                    : "border-border hover:border-muted-foreground/30"
-                )}
-                onClick={() => handleSelectLocation(location.name)}
-              >
-                <div>
-                  <h3 className="font-bold">{location.name}</h3>
-                  <div className="flex items-center gap-2 mt-1">
-                    {location.open ? (
-                      <span className="flex items-center gap-1 text-sm text-success">
-                        <Clock className="w-3 h-3" />
-                        Open now
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-sm text-destructive">
-                        <Clock className="w-3 h-3" />
-                        Closed
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1">{location.address}</p>
-                </div>
-                <Button 
-                  variant={selectedLocation === location.name ? "default" : "outline"}
-                  size="sm"
-                  disabled={!location.open}
-                >
-                  {selectedLocation === location.name ? 'Selected' : 'Order'}
-                </Button>
+            {filteredStores.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                <MapPin className="w-8 h-8 mb-2" />
+                <p>No stores available</p>
               </div>
-            ))}
+            ) : (
+              filteredStores.map((store) => {
+                const isSelected = storeId === store.id;
+                return (
+                  <div
+                    key={store.id}
+                    className={cn(
+                      "flex items-center justify-between p-4 rounded-2xl border-2 transition-colors cursor-pointer",
+                      isSelected
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-muted-foreground/30",
+                    )}
+                    onClick={() => handleSelectStore(store.id)}
+                  >
+                    <div>
+                      <h3 className="font-bold">{store.name}</h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span
+                          className={cn(
+                            "flex items-center gap-1 text-sm",
+                            store.isActive ? "text-success" : "text-destructive",
+                          )}
+                        >
+                          <Clock className="w-3 h-3" />
+                          {store.isActive ? "Open now" : "Closed"}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {store.address}
+                      </p>
+                    </div>
+                    <Button
+                      variant={isSelected ? "default" : "outline"}
+                      size="sm"
+                      disabled={!store.isActive}
+                    >
+                      {isSelected ? "Selected" : "Pick"}
+                    </Button>
+                  </div>
+                );
+              })
+            )}
           </div>
-        ) : (
+        ) : !isAuthenticated ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mb-4">
               <MapPin className="w-8 h-8 text-muted-foreground" />
             </div>
-            <p className="text-muted-foreground">Enter your delivery address above</p>
-            <p className="text-sm text-muted-foreground mt-1">We'll show you available delivery options</p>
+            <p className="text-muted-foreground">Sign in to add a delivery address</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {addressLine.trim() && (
+              <Button
+                onClick={handleQuickAddAddress}
+                variant="outline"
+                className="w-full"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Save "{addressLine.trim()}"
+              </Button>
+            )}
+            {addresses.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <MapPin className="w-8 h-8 text-muted-foreground mb-2" />
+                <p className="text-muted-foreground">
+                  No saved addresses yet
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Type your address above to save it
+                </p>
+              </div>
+            ) : (
+              addresses.map((address) => {
+                const isSelected = selectedAddressId === address.id;
+                return (
+                  <div
+                    key={address.id}
+                    className={cn(
+                      "flex items-center justify-between p-4 rounded-2xl border-2 transition-colors cursor-pointer",
+                      isSelected
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-muted-foreground/30",
+                    )}
+                    onClick={() => handleSelectAddress(address.id)}
+                  >
+                    <div>
+                      <h3 className="font-bold">{address.label}</h3>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {address.line1}
+                        {address.city && `, ${address.city}`}
+                      </p>
+                    </div>
+                    <Button
+                      variant={isSelected ? "default" : "outline"}
+                      size="sm"
+                    >
+                      {isSelected ? "Selected" : "Select"}
+                    </Button>
+                  </div>
+                );
+              })
+            )}
           </div>
         )}
       </div>

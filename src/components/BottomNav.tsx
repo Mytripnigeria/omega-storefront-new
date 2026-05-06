@@ -1,6 +1,7 @@
 import { ShoppingCart, User, Star, ClipboardList } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '@/context/CartContext';
+import { useAuth } from '@/context/AuthContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
@@ -14,7 +15,9 @@ interface BottomNavProps {
 
 export const BottomNav = ({ onCartClick, onWalletClick, onSignInClick, isLoggedIn }: BottomNavProps) => {
   const navigate = useNavigate();
-  const { itemCount, subtotal, user } = useCart();
+  const { itemCount, subtotal } = useCart();
+  const { profile } = useAuth();
+  const points = profile?.points ?? 0;
   const { triggerHaptic } = useHaptics();
 
   const handleCartClick = () => {
@@ -40,9 +43,9 @@ export const BottomNav = ({ onCartClick, onWalletClick, onSignInClick, isLoggedI
               transition={{ duration: 0.1 }}
             >
               <Star className="w-5 h-5" />
-              {user.loyaltyPoints > 0 && (
+              {points > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 px-1.5 min-w-[18px] h-[18px] rounded-full bg-foreground text-background text-[10px] font-bold flex items-center justify-center">
-                  {user.loyaltyPoints > 999 ? '1k' : user.loyaltyPoints}
+                  {points > 999 ? '1k' : points}
                 </span>
               )}
             </motion.button>
