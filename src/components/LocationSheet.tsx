@@ -81,11 +81,11 @@ export const LocationSheet = ({ isOpen, onClose }: LocationSheetProps) => {
       return;
     }
     try {
+      // City/country left blank — backend stores the address as-is. Admin
+      // can add structured fields later via the addresses API.
       const created = await addressesApi.create({
         label: "Delivery",
         line1: trimmed,
-        city: "Lagos",
-        country: "Nigeria",
         isDefault: addresses.length === 0,
       });
       setAddresses((prev) => [created, ...prev]);

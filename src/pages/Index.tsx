@@ -24,11 +24,20 @@ import { useCart } from '@/context/CartContext';
 import { MenuItem } from '@/types/menu';
 import { toast } from 'sonner';
 import logo from '@/assets/logo.png';
+import { useStorefront } from '@/context/StorefrontContext';
 
 const Index = () => {
   const navigate = useNavigate();
   const { addItem, isLoggedIn } = useCart();
-  const { menuItems, comboItems, categories, isLoading: menuLoading } = useMenu();
+  const { config } = useStorefront();
+  const {
+    menuItems,
+    comboItems,
+    categories,
+    stores,
+    error: menuError,
+    isLoading: menuLoading,
+  } = useMenu();
   const skeletonLoading = useSkeletonLoader(1500);
   const isLoading = skeletonLoading || menuLoading;
 
@@ -137,7 +146,11 @@ const Index = () => {
         {/* Hero Section with Logo */}
         <div className="px-4 pt-6 pb-4 max-w-7xl mx-auto lg:px-6">
           <div className="mb-4">
-            <img src={logo} alt="Mr. Jollof" className="h-14 w-auto mb-2" />
+            <img
+              src={config?.logoUrl || logo}
+              alt={config?.storeName ?? 'Storefront'}
+              className="h-14 w-auto mb-2"
+            />
             <button 
               onClick={() => setIsStoreInfoOpen(true)}
               className="flex items-center gap-1 text-sm text-success hover:text-success/80 transition-colors"
@@ -172,6 +185,24 @@ const Index = () => {
                 <MenuSectionSkeleton />
                 <MenuSectionSkeleton />
               </>
+            ) : menuError ? (
+              <div className="px-4 lg:px-0 py-10 text-center text-sm text-muted-foreground">
+                <p>We couldn't load the menu — {menuError}</p>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="mt-3 px-4 py-2 bg-primary text-primary-foreground rounded-full text-sm font-medium"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : stores.length === 0 ? (
+              <div className="px-4 lg:px-0 py-10 text-center text-sm text-muted-foreground">
+                No stores are open right now — please check back soon.
+              </div>
+            ) : menuItems.length + comboItems.length === 0 ? (
+              <div className="px-4 lg:px-0 py-10 text-center text-sm text-muted-foreground">
+                The menu is empty. Please check back soon.
+              </div>
             ) : (
               categories.map(category => {
                 const items = groupedItems[category.id] || [];

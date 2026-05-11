@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import { CartItem, MenuItem } from "@/types/menu";
 import { useAuth } from "@/context/AuthContext";
+import { useStorefront } from "@/context/StorefrontContext";
 
 const STORAGE_KEY = "omega_cart_v2";
 
@@ -64,6 +65,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const { isAuthenticated } = useAuth();
+  const { config } = useStorefront();
   const persisted = loadPersisted();
 
   const [items, setItems] = useState<CartItem[]>(persisted.items ?? []);
@@ -166,9 +168,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({
     (sum, item) => sum + item.menuItem.price * item.quantity,
     0,
   );
-  const tax = Math.round(subtotal * 0.075);
+  const taxRate = Number(config?.taxRate ?? 0.075);
+  const pointsPerNaira = Number(config?.pointsPerNaira ?? 0.1);
+  const tax = Math.round(subtotal * taxRate);
   const total = subtotal + tax;
-  const pointsToEarn = Math.floor(subtotal / 100) * 10;
+  const pointsToEarn = Math.floor(subtotal * pointsPerNaira);
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
   return (

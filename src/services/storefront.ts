@@ -52,6 +52,12 @@ export interface StorefrontConfig {
   contactEmail: string | null;
   contactPhone: string | null;
   contactAddress: string | null;
+  /** VAT rate fraction (0.075 = 7.5%) — set in admin → Settings → Business. */
+  taxRate: number;
+  /** Loyalty points earned per ₦1 spent. */
+  pointsPerNaira: number;
+  /** Naira value of one redeemed loyalty point. */
+  nairaPerPoint: number;
   createdAt: string;
   updatedAt: string;
 }

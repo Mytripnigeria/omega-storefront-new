@@ -1,32 +1,45 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, RotateCcw, ChevronRight, MapPin } from "lucide-react";
+import { ArrowLeft, ChevronRight, MapPin, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
+  FadeInSection,
   PageTransition,
   StaggerContainer,
   StaggerItem,
-  FadeInSection,
 } from "@/components/PageTransition";
 import { OrderHistorySkeleton } from "@/components/skeletons";
 import { useHaptics } from "@/hooks/useHaptics";
+import { useCart } from "@/context/CartContext";
+import { useMenu } from "@/context/MenuContext";
 import { ordersApi, type StorefrontOrder } from "@/services/orders";
+import { toast } from "sonner";
+
+const PAGE_SIZE = 20;
 
 const OrderHistory = () => {
   const navigate = useNavigate();
   const { triggerHaptic } = useHaptics();
+  const { menuItems } = useMenu();
+  const { addItem } = useCart();
   const [orders, setOrders] = useState<StorefrontOrder[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Initial page.
   useEffect(() => {
     let cancelled = false;
     setIsLoading(true);
     void ordersApi
-      .list({ limit: 50 })
+      .list({ page: 1, limit: PAGE_SIZE })
       .then((res) => {
         if (cancelled) return;
         setOrders(res.data);
+        setTotalPages(res.totalPages);
+        setPage(res.page);
         setError(null);
       })
       .catch((e: Error) => {
@@ -39,6 +52,21 @@ const OrderHistory = () => {
       cancelled = true;
     };
   }, []);
+
+  const loadMore = async () => {
+    if (isLoadingMore || page >= totalPages) return;
+    setIsLoadingMore(true);
+    try {
+      const next = await ordersApi.list({ page: page + 1, limit: PAGE_SIZE });
+      setOrders((prev) => [...prev, ...next.data]);
+      setPage(next.page);
+      setTotalPages(next.totalPages);
+    } catch (e) {
+      toast.error((e as Error).message ?? "Couldn't load more orders");
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
 
   const formatDate = (s: string) =>
     new Date(s).toLocaleDateString("en-US", {
@@ -71,8 +99,32 @@ const OrderHistory = () => {
     );
   };
 
-  const handleReorder = (_o: StorefrontOrder) => {
+  const handleReorder = (o: StorefrontOrder) => {
     triggerHaptic("light");
+    let added = 0;
+    let missing = 0;
+    for (const item of o.items) {
+      if (!item.productId) {
+        missing += 1;
+        continue;
+      }
+      const menuItem = menuItems.find((m) => m.id === item.productId);
+      if (!menuItem) {
+        missing += 1;
+        continue;
+      }
+      addItem(menuItem, item.quantity);
+      added += 1;
+    }
+    if (added === 0) {
+      toast.error("None of those items are still on the menu.");
+      return;
+    }
+    if (missing > 0) {
+      toast.success(`${added} item(s) added — ${missing} no longer available.`);
+    } else {
+      toast.success(`${added} item${added === 1 ? "" : "s"} added to your cart`);
+    }
     navigate("/");
   };
 
@@ -139,7 +191,7 @@ const OrderHistory = () => {
                         <span className="font-semibold">
                           ₦{Number(o.total).toLocaleString()}
                         </span>
-                        {o.status === "completed" && (
+                        {(o.status === "completed" || o.status === "served") && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -157,6 +209,18 @@ const OrderHistory = () => {
                 </StaggerItem>
               ))}
             </StaggerContainer>
+          )}
+
+          {orders.length > 0 && page < totalPages && (
+            <div className="text-center pt-2">
+              <Button
+                variant="outline"
+                onClick={loadMore}
+                disabled={isLoadingMore}
+              >
+                {isLoadingMore ? "Loading…" : "Load more"}
+              </Button>
+            </div>
           )}
         </div>
       </div>

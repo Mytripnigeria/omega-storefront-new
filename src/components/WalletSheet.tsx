@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { useAuth } from "@/context/AuthContext";
+import { useStorefront } from "@/context/StorefrontContext";
 import {
   profileApi,
   type WalletTx,
@@ -45,6 +46,8 @@ const formatDate = (s: string) =>
 export const WalletSheet = ({ isOpen, onClose }: WalletSheetProps) => {
   useBodyScrollLock(isOpen);
   const { profile, isAuthenticated } = useAuth();
+  const { config } = useStorefront();
+  const nairaPerPoint = Number(config?.nairaPerPoint ?? 0.1);
 
   const [view, setView] = useState<View>("main");
   const [walletTx, setWalletTx] = useState<WalletTx[]>([]);
@@ -353,11 +356,14 @@ export const WalletSheet = ({ isOpen, onClose }: WalletSheetProps) => {
         <h3 className="text-lg font-bold mb-2">Redeem Your Points</h3>
         <p className="text-muted-foreground text-sm mb-4">
           You have <strong>{Number(points).toLocaleString()} points</strong>{" "}
-          (worth ₦{Math.floor(points / 10).toLocaleString()})
+          (worth ₦{Math.floor(points * nairaPerPoint).toLocaleString()})
         </p>
         <p className="text-sm text-muted-foreground">
-          Add items to your cart and apply your points at checkout — 10 points
-          = ₦1 off your order.
+          Add items to your cart and apply your points at checkout —{" "}
+          {nairaPerPoint > 0
+            ? `1 point = ₦${nairaPerPoint.toLocaleString()}`
+            : "points are not redeemable right now"}
+          .
         </p>
         <Button onClick={handleClose} className="mt-6 rounded-full">
           Start Ordering

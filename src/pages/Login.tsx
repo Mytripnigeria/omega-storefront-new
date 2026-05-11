@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +10,8 @@ const BUSINESS_ID = (import.meta.env.VITE_BUSINESS_ID ?? "") as string;
 
 export default function Login() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get("redirect") || "/";
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,7 +31,8 @@ export default function Login() {
     try {
       await login({ businessId: BUSINESS_ID, email, password });
       toast.success("Welcome back!");
-      navigate("/");
+      // Send the visitor back where they were trying to go.
+      navigate(redirectTo, { replace: true });
     } catch (err) {
       toast.error((err as Error).message ?? "Couldn't sign in");
     } finally {

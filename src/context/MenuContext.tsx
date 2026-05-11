@@ -118,8 +118,16 @@ export function MenuProvider({ children }: { children: ReactNode }) {
         const list = await menuApi.stores();
         if (cancelled) return;
         setStores(list);
-        if (!storeId && list.length > 0) {
-          setStoreId(list[0].id);
+        // Stale-store recovery: if the cart still references a store that's
+        // no longer active (admin removed/disabled it), fall back to the
+        // first available store so the customer doesn't see an empty menu.
+        if (list.length > 0) {
+          const stillThere = storeId && list.some((s) => s.id === storeId);
+          if (!storeId || !stillThere) {
+            setStoreId(list[0].id);
+          }
+        } else {
+          setIsLoading(false);
         }
       } catch (e) {
         if (!cancelled) {

@@ -79,6 +79,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // api-client dispatches `omega:auth-expired` when refresh fails. Drop the
+  // session here so route guards can redirect the customer to /login.
+  useEffect(() => {
+    const onExpired = () => {
+      setUser(null);
+      setProfile(null);
+    };
+    window.addEventListener("omega:auth-expired", onExpired);
+    return () => window.removeEventListener("omega:auth-expired", onExpired);
+  }, []);
+
   const persistAuth = useCallback(
     async (session: { accessToken: string; refreshToken: string; user: UserSession }) => {
       tokenStorage.setToken(session.accessToken);

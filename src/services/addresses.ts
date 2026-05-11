@@ -7,9 +7,9 @@ export interface CustomerAddress {
   label: string;
   line1: string;
   line2: string | null;
-  city: string;
+  city: string | null;
   state: string | null;
-  country: string;
+  country: string | null;
   zipCode: string | null;
   latitude: number | null;
   longitude: number | null;
@@ -23,7 +23,7 @@ export interface CreateAddressRequest {
   label: string;
   line1: string;
   line2?: string;
-  city: string;
+  city?: string;
   state?: string;
   country?: string;
   zipCode?: string;

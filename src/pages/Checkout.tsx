@@ -16,6 +16,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
+import { useStorefront } from "@/context/StorefrontContext";
 import { useMenu } from "@/context/MenuContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,6 +56,8 @@ declare global {
 
 const PAYSTACK_SCRIPT = "https://js.paystack.co/v1/inline.js";
 
+const PAYSTACK_LOAD_TIMEOUT_MS = 10_000;
+
 function ensurePaystackLoaded(): Promise<PaystackInline> {
   return new Promise((resolve, reject) => {
     if (window.PaystackPop) {
@@ -64,19 +67,28 @@ function ensurePaystackLoaded(): Promise<PaystackInline> {
     const existing = document.querySelector<HTMLScriptElement>(
       `script[src="${PAYSTACK_SCRIPT}"]`,
     );
+    const timer = setTimeout(() => {
+      reject(new Error("Paystack didn't load in time. Please retry."));
+    }, PAYSTACK_LOAD_TIMEOUT_MS);
     const onLoad = () => {
+      clearTimeout(timer);
       if (window.PaystackPop) resolve(window.PaystackPop);
       else reject(new Error("Failed to load Paystack"));
     };
+    const onError = () => {
+      clearTimeout(timer);
+      reject(new Error("Failed to load Paystack"));
+    };
     if (existing) {
       existing.addEventListener("load", onLoad, { once: true });
+      existing.addEventListener("error", onError, { once: true });
       return;
     }
     const script = document.createElement("script");
     script.src = PAYSTACK_SCRIPT;
     script.async = true;
     script.onload = onLoad;
-    script.onerror = () => reject(new Error("Failed to load Paystack"));
+    script.onerror = onError;
     document.body.appendChild(script);
   });
 }
@@ -100,6 +112,8 @@ const Checkout = () => {
     clearCart,
   } = useCart();
   const { profile, isAuthenticated } = useAuth();
+  const { config } = useStorefront();
+  const nairaPerPoint = Number(config?.nairaPerPoint ?? 0.1);
   const { store } = useMenu();
 
   const [tipPercent, setTipPercent] = useState(0);
@@ -133,9 +147,17 @@ const Checkout = () => {
   const tipAmount = Math.round(subtotal * (tipPercent / 100));
   const couponDiscount = appliedCoupon?.discount ?? 0;
   const pointsBalance = profile?.points ?? 0;
-  const pointsValue = Math.floor(pointsBalance / 10); // 10pts = ₦1
-  const pointsRedeemed = redeemPoints ? Math.min(pointsBalance, total * 10) : 0;
-  const pointsRedemptionValue = Math.floor(pointsRedeemed / 10);
+  // Naira value of the customer's full points balance + how many points they
+  // need to redeem to cover (at most) the current total. Both come from the
+  // business's loyalty settings.
+  const pointsValue = Math.floor(pointsBalance * nairaPerPoint);
+  const pointsRedeemed = redeemPoints
+    ? Math.min(
+        pointsBalance,
+        nairaPerPoint > 0 ? Math.ceil(total / nairaPerPoint) : 0,
+      )
+    : 0;
+  const pointsRedemptionValue = Math.floor(pointsRedeemed * nairaPerPoint);
 
   const finalTotal = useMemo(() => {
     return Math.max(
@@ -204,6 +226,52 @@ const Checkout = () => {
       toast.error("Please select a delivery address");
       return;
     }
+    if (subtotal <= 0) {
+      toast.error("Add at least one item to your cart");
+      return;
+    }
+    if (
+      paymentMethod === "wallet" &&
+      finalTotal > Number(profile.walletBalance ?? 0)
+    ) {
+      toast.error(
+        `Wallet balance ₦${Number(profile.walletBalance ?? 0).toLocaleString()} can't cover ₦${finalTotal.toLocaleString()} — pick another payment method.`,
+      );
+      return;
+    }
+    if (paymentMethod === "points" && finalTotal > 0) {
+      toast.error(
+        "Points alone can't cover this order — pick another payment method or redeem fewer points.",
+      );
+      return;
+    }
+
+    // Re-validate the coupon if items have changed since it was applied — the
+    // backend will reject if it no longer qualifies, so do a silent dry-run
+    // first and surface the reason without losing the customer's place.
+    if (appliedCoupon) {
+      try {
+        const couponItems = items.map((i) => ({
+          productId: i.menuItem.isCombo ? undefined : i.menuItem.id,
+          categoryId: i.menuItem.category,
+          lineTotal: i.menuItem.price * i.quantity,
+        }));
+        const recheck = await couponsApi.validate(
+          appliedCoupon.code,
+          subtotal,
+          couponItems,
+        );
+        if (!recheck.valid) {
+          setAppliedCoupon(null);
+          toast.error(
+            `Coupon ${appliedCoupon.code} is no longer valid: ${recheck.reason ?? "removed"}`,
+          );
+          return;
+        }
+      } catch {
+        // network blip on the recheck — don't block, server will catch it.
+      }
+    }
 
     setSubmitting(true);
     try {
@@ -270,11 +338,23 @@ const Checkout = () => {
             clearCart();
             navigate(`/order-tracking/${orderId}`);
           } catch (e) {
-            toast.error((e as Error).message ?? "Couldn't verify payment");
+            // Payment verification failed but the order exists. Don't clear
+            // the cart — the customer may want to retry. Send them to order
+            // tracking so admin/webhook reconciliation surfaces the result.
+            toast.error(
+              (e as Error).message ??
+                "Couldn't verify payment — your order is still recorded.",
+            );
+            navigate(`/order-tracking/${orderId}`);
           }
         },
+        onCancel: () => {
+          toast.info("Payment cancelled — you can retry from your order page.");
+          navigate(`/order-tracking/${orderId}`);
+        },
         onClose: () => {
-          toast.info("Payment cancelled");
+          // Customer dismissed the popup — surface the same affordance.
+          toast.info("Payment closed — you can retry from your order page.");
         },
       });
       handler.openIframe();

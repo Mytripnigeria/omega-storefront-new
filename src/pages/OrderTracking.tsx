@@ -69,6 +69,8 @@ const OrderTracking = () => {
     }
     let cancelled = false;
     let lastStatus: StorefrontOrder["status"] | null = null;
+    let consecutiveErrors = 0;
+    let interval: number | null = null;
 
     const tick = async () => {
       try {
@@ -78,24 +80,51 @@ const OrderTracking = () => {
           triggerHaptic("light");
         }
         lastStatus = fresh.status;
+        consecutiveErrors = 0;
         setOrder(fresh);
         setError(null);
       } catch (e) {
-        if (!cancelled) setError((e as Error).message ?? "Couldn't load order");
+        if (!cancelled) {
+          consecutiveErrors += 1;
+          setError((e as Error).message ?? "Couldn't load order");
+          // Stop polling after 3 failed ticks; the customer can manually
+          // retry via the page-focus refetch (or by reloading).
+          if (consecutiveErrors >= 3 && interval != null) {
+            window.clearInterval(interval);
+            interval = null;
+          }
+        }
       } finally {
         if (!cancelled) setIsLoading(false);
       }
     };
 
     void tick();
-    const interval = window.setInterval(() => {
-      if (lastStatus === "completed" || lastStatus === "cancelled") return;
+    interval = window.setInterval(() => {
+      if (lastStatus === "completed" || lastStatus === "cancelled") {
+        if (interval != null) window.clearInterval(interval);
+        interval = null;
+        return;
+      }
       void tick();
     }, 8000);
 
+    // Refetch when the tab regains focus — customer often tabs away after
+    // placing an order.
+    const onFocus = () => {
+      if (cancelled) return;
+      consecutiveErrors = 0;
+      if (interval == null && lastStatus !== "completed" && lastStatus !== "cancelled") {
+        interval = window.setInterval(() => void tick(), 8000);
+      }
+      void tick();
+    };
+    window.addEventListener("focus", onFocus);
+
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
+      if (interval != null) window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
     };
   }, [id, triggerHaptic]);
 

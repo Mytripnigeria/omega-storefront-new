@@ -1,90 +1,74 @@
-import { X, Check, ChevronLeft, ChevronRight } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { useCart } from '@/context/CartContext';
-import { useState, useMemo } from 'react';
-import { format, addDays, isSameDay, startOfToday } from 'date-fns';
-import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { Check, X } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useCart } from "@/context/CartContext";
+import { useMemo, useState } from "react";
+import { addDays, format, isSameDay, startOfToday } from "date-fns";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
+import { useStoreAvailability } from "@/hooks/useStoreAvailability";
 
 interface TimePickerSheetProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-const generateTimeSlots = (date: Date) => {
-  const isToday = isSameDay(date, startOfToday());
-  const slots = [
-    ...(isToday ? [{ id: 'asap', label: 'ASAP', sublabel: '15-25 min' }] : []),
-    { id: '1030', label: '10:30 AM', sublabel: format(date, 'EEE, MMM d') },
-    { id: '1100', label: '11:00 AM', sublabel: format(date, 'EEE, MMM d') },
-    { id: '1130', label: '11:30 AM', sublabel: format(date, 'EEE, MMM d') },
-    { id: '1200', label: '12:00 PM', sublabel: format(date, 'EEE, MMM d') },
-    { id: '1230', label: '12:30 PM', sublabel: format(date, 'EEE, MMM d') },
-    { id: '1300', label: '1:00 PM', sublabel: format(date, 'EEE, MMM d') },
-    { id: '1330', label: '1:30 PM', sublabel: format(date, 'EEE, MMM d') },
-    { id: '1400', label: '2:00 PM', sublabel: format(date, 'EEE, MMM d') },
-    { id: '1430', label: '2:30 PM', sublabel: format(date, 'EEE, MMM d') },
-    { id: '1500', label: '3:00 PM', sublabel: format(date, 'EEE, MMM d') },
-  ];
-  return slots;
-};
+const ASAP_ID = "asap";
 
 export const TimePickerSheet = ({ isOpen, onClose }: TimePickerSheetProps) => {
   useBodyScrollLock(isOpen);
-  
-  const { selectedTime, setSelectedTime } = useCart();
-  const [selectedDate, setSelectedDate] = useState(startOfToday());
-  const [selected, setSelected] = useState(selectedTime || 'asap');
 
-  // Generate 7 days for the day selector
+  const { selectedTime, setSelectedTime, storeId } = useCart();
+  const [selectedDate, setSelectedDate] = useState<Date>(startOfToday());
+  const [selectedSlot, setSelectedSlot] = useState<string>(
+    selectedTime || ASAP_ID,
+  );
+
   const days = useMemo(() => {
     const today = startOfToday();
     return Array.from({ length: 7 }, (_, i) => addDays(today, i));
   }, []);
 
-  const timeSlots = useMemo(() => generateTimeSlots(selectedDate), [selectedDate]);
-
-  const handleDateChange = (date: Date) => {
-    setSelectedDate(date);
-    // Reset to first available slot when changing date
-    const slots = generateTimeSlots(date);
-    setSelected(slots[0]?.id || 'asap');
-  };
+  const isoDate = format(selectedDate, "yyyy-MM-dd");
+  const { data, isLoading, error } = useStoreAvailability(
+    storeId,
+    isoDate,
+  );
 
   const handleConfirm = () => {
-    const slot = timeSlots.find(s => s.id === selected);
-    if (slot?.id === 'asap') {
-      setSelectedTime('ASAP');
-    } else if (slot) {
-      setSelectedTime(`${slot.label}, ${format(selectedDate, 'EEE d')}`);
+    if (selectedSlot === ASAP_ID) {
+      setSelectedTime("ASAP");
+    } else {
+      setSelectedTime(selectedSlot);
     }
     onClose();
   };
 
+  const slots = data?.slots ?? [];
+  const asapAvailable = data?.asapAvailable ?? false;
+  const noOptions =
+    !isLoading && !error && slots.length === 0 && !asapAvailable;
+
   return (
     <>
-      {/* Backdrop */}
-      <div 
+      <div
         className={cn(
           "fixed inset-0 bg-foreground/50 z-50 transition-opacity duration-300 safari-fix",
-          isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+          isOpen ? "opacity-100" : "opacity-0 pointer-events-none",
         )}
         onClick={onClose}
       />
 
-      {/* Sheet - Bottom sheet on mobile, centered dialog on desktop */}
-      <div 
+      <div
         className={cn(
           "fixed z-50 bg-card shadow-none border border-border transition-all duration-300 flex flex-col safari-fix",
-          // Mobile: bottom sheet
           "inset-x-0 bottom-0 rounded-t-3xl max-h-[80vh]",
           isOpen ? "translate-y-0" : "translate-y-full",
-          // Desktop: centered dialog
           "lg:inset-auto lg:top-1/2 lg:left-1/2 lg:-translate-x-1/2 lg:rounded-2xl lg:w-full lg:max-w-md lg:max-h-[70vh]",
-          isOpen ? "lg:-translate-y-1/2 lg:opacity-100" : "lg:-translate-y-1/2 lg:opacity-0 lg:pointer-events-none"
+          isOpen
+            ? "lg:-translate-y-1/2 lg:opacity-100"
+            : "lg:-translate-y-1/2 lg:opacity-0 lg:pointer-events-none",
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-center justify-between p-5 pb-3 border-b border-border">
           <h2 className="text-lg font-bold">Select Date & Time</h2>
           <button
@@ -95,32 +79,31 @@ export const TimePickerSheet = ({ isOpen, onClose }: TimePickerSheetProps) => {
           </button>
         </div>
 
-        {/* Day Selector */}
         <div className="px-4 py-3 border-b border-border">
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1">
             {days.map((day, index) => {
               const isSelected = isSameDay(day, selectedDate);
               const isToday = index === 0;
-              
               return (
                 <button
                   key={day.toISOString()}
-                  onClick={() => handleDateChange(day)}
+                  onClick={() => {
+                    setSelectedDate(day);
+                    setSelectedSlot(ASAP_ID);
+                  }}
                   className={cn(
                     "flex flex-col items-center min-w-[60px] py-2 px-3 rounded-xl transition-all",
-                    isSelected 
-                      ? "bg-primary text-primary-foreground" 
-                      : "bg-secondary hover:bg-secondary/80"
+                    isSelected
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary hover:bg-secondary/80",
                   )}
                 >
                   <span className="text-xs font-medium">
-                    {isToday ? 'Today' : format(day, 'EEE')}
+                    {isToday ? "Today" : format(day, "EEE")}
                   </span>
-                  <span className="text-lg font-bold">
-                    {format(day, 'd')}
-                  </span>
+                  <span className="text-lg font-bold">{format(day, "d")}</span>
                   <span className="text-[10px] opacity-70">
-                    {format(day, 'MMM')}
+                    {format(day, "MMM")}
                   </span>
                 </button>
               );
@@ -128,39 +111,84 @@ export const TimePickerSheet = ({ isOpen, onClose }: TimePickerSheetProps) => {
           </div>
         </div>
 
-        {/* Time Slots */}
         <div className="flex-1 overflow-y-auto p-4">
-          <div className="space-y-2">
-            {timeSlots.map((slot) => (
-              <button
-                key={slot.id}
-                onClick={() => setSelected(slot.id)}
-                className={cn(
-                  "w-full flex items-center justify-between p-4 rounded-xl border transition-all",
-                  selected === slot.id 
-                    ? "border-primary bg-primary/10" 
-                    : "border-border hover:bg-secondary/50"
-                )}
-              >
-                <div className="text-left">
-                  <p className="font-medium">{slot.label}</p>
-                  <p className="text-sm text-muted-foreground">{slot.sublabel}</p>
-                </div>
-                {selected === slot.id && (
-                  <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                    <Check className="w-4 h-4 text-primary-foreground" />
+          {!storeId ? (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              Pick a store first to see available times.
+            </p>
+          ) : isLoading ? (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              Loading availability…
+            </p>
+          ) : error ? (
+            <p className="text-sm text-destructive text-center py-6">
+              Couldn't load slots — please try again.
+            </p>
+          ) : noOptions ? (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              Closed on this day. Try another date.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {asapAvailable && (
+                <button
+                  onClick={() => setSelectedSlot(ASAP_ID)}
+                  className={cn(
+                    "w-full flex items-center justify-between p-4 rounded-xl border transition-all",
+                    selectedSlot === ASAP_ID
+                      ? "border-primary bg-primary/10"
+                      : "border-border hover:bg-secondary/50",
+                  )}
+                >
+                  <div className="text-left">
+                    <p className="font-medium">ASAP</p>
+                    <p className="text-sm text-muted-foreground">
+                      Start now — typical 15-25 min
+                    </p>
                   </div>
-                )}
-              </button>
-            ))}
-          </div>
+                  {selectedSlot === ASAP_ID && (
+                    <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                      <Check className="w-4 h-4 text-primary-foreground" />
+                    </div>
+                  )}
+                </button>
+              )}
+              {slots.map((slot) => {
+                const start = new Date(slot.startsAt);
+                const label = format(start, "h:mm a");
+                const sub = format(start, "EEE, MMM d");
+                return (
+                  <button
+                    key={slot.startsAt}
+                    onClick={() => setSelectedSlot(slot.startsAt)}
+                    className={cn(
+                      "w-full flex items-center justify-between p-4 rounded-xl border transition-all",
+                      selectedSlot === slot.startsAt
+                        ? "border-primary bg-primary/10"
+                        : "border-border hover:bg-secondary/50",
+                    )}
+                  >
+                    <div className="text-left">
+                      <p className="font-medium">{label}</p>
+                      <p className="text-sm text-muted-foreground">{sub}</p>
+                    </div>
+                    {selectedSlot === slot.startsAt && (
+                      <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                        <Check className="w-4 h-4 text-primary-foreground" />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
-        {/* Confirm Button */}
         <div className="p-4 border-t border-border safe-bottom-pad">
           <button
             onClick={handleConfirm}
-            className="w-full h-12 bg-primary text-primary-foreground rounded-full font-semibold"
+            disabled={noOptions || isLoading || !!error || !storeId}
+            className="w-full h-12 bg-primary text-primary-foreground rounded-full font-semibold disabled:opacity-50"
           >
             Confirm
           </button>

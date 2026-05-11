@@ -80,6 +80,24 @@ export const ItemDetailSheet = ({ item, isOpen, onClose }: ItemDetailSheetProps)
   };
 
   const handleAddToCart = () => {
+    // Enforce required + max-selection rules before sending to the cart so
+    // the customer can't sneak past the picker without choosing.
+    const opts = item.options ?? [];
+    for (const opt of opts) {
+      const picks = selectedOptions[opt.id] ?? [];
+      if (opt.required && picks.length === 0) {
+        toast.error(`Please choose ${opt.name.toLowerCase()}`);
+        triggerHaptic('error');
+        return;
+      }
+      if (opt.maxSelections && picks.length > opt.maxSelections) {
+        toast.error(
+          `You can pick at most ${opt.maxSelections} for ${opt.name.toLowerCase()}`,
+        );
+        triggerHaptic('error');
+        return;
+      }
+    }
     triggerHaptic('success');
     addItem(item, quantity, selectedOptions, specialRequest);
     setQuantity(1);

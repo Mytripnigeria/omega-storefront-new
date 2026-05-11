@@ -6,7 +6,7 @@ export const Header = () => {
   const navigate = useNavigate();
   const { config } = useStorefront();
 
-  const storeName = config?.storeName || "Mr. Jollof";
+  const storeName = config?.storeName || "Storefront";
   const logoUrl = config?.logoUrl || logo;
 
   return (

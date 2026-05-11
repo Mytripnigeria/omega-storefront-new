@@ -23,6 +23,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Page from "./pages/Page";
 import NotFound from "./pages/NotFound";
+import { RequireAuth } from "@/components/auth/RequireAuth";
 
 const queryClient = new QueryClient();
 
@@ -32,18 +33,24 @@ const AnimatedRoutes = () => {
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
+        {/* Public */}
         <Route path="/" element={<Index />} />
-        <Route path="/checkout" element={<Checkout />} />
-        <Route path="/order-tracking" element={<OrderTracking />} />
-        <Route path="/order-tracking/:id" element={<OrderTracking />} />
-        <Route path="/order-history" element={<OrderHistory />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/referrals" element={<Referrals />} />
-        <Route path="/payment-methods" element={<PaymentMethods />} />
-        <Route path="/settings" element={<Settings />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/p/:slug" element={<Page />} />
+
+        {/* Customer-only — RequireAuth bounces to /login?redirect=… */}
+        <Route element={<RequireAuth />}>
+          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/order-tracking" element={<OrderTracking />} />
+          <Route path="/order-tracking/:id" element={<OrderTracking />} />
+          <Route path="/order-history" element={<OrderHistory />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/referrals" element={<Referrals />} />
+          <Route path="/payment-methods" element={<PaymentMethods />} />
+          <Route path="/settings" element={<Settings />} />
+        </Route>
+
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>

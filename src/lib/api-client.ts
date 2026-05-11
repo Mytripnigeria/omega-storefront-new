@@ -14,28 +14,55 @@ export const tokenStorage = {
   },
 };
 
+const REFRESH_TIMEOUT_MS = 10_000;
+
 let isRefreshing = false;
-let refreshQueue: Array<(token: string) => void> = [];
+type RefreshWaiter = (token: string | null) => void;
+let refreshQueue: RefreshWaiter[] = [];
+
+/**
+ * Notifies the app that the current session has expired and tokens have been
+ * cleared. AuthContext listens for this and routes the user to /login.
+ */
+function broadcastAuthExpired() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("omega:auth-expired"));
+  }
+}
 
 async function refreshAccessToken(): Promise<string> {
   const refreshToken = tokenStorage.getRefreshToken();
   if (!refreshToken) throw new Error("No refresh token");
 
-  const res = await fetch(`${API_URL}/auth/storefront/refresh`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refreshToken }),
-  });
-
-  if (!res.ok) {
-    tokenStorage.clear();
-    throw new Error("Session expired");
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REFRESH_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}/auth/storefront/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if ((err as Error).name === "AbortError") throw new Error("Refresh timed out");
+    throw err;
+  } finally {
+    clearTimeout(timer);
   }
 
+  if (!res.ok) throw new Error("Session expired");
+
   const json = await res.json();
-  const newToken = json.data.accessToken as string;
-  tokenStorage.setToken(newToken);
-  return newToken;
+  const data = json.data ?? json;
+  const newAccess = data.accessToken as string;
+  if (!newAccess) throw new Error("Refresh did not return an access token");
+  tokenStorage.setToken(newAccess);
+  // Backend rotates the refresh token — pick up the new one if returned.
+  if (typeof data.refreshToken === "string") {
+    tokenStorage.setRefreshToken(data.refreshToken);
+  }
+  return newAccess;
 }
 
 export async function apiRequest<T>(
@@ -56,29 +83,34 @@ export async function apiRequest<T>(
   let response = await makeRequest(token);
 
   if (response.status === 401 && token) {
+    let nextToken: string | null = null;
+
     if (!isRefreshing) {
       isRefreshing = true;
       try {
-        const newToken = await refreshAccessToken();
-        refreshQueue.forEach((cb) => cb(newToken));
-        refreshQueue = [];
-        isRefreshing = false;
-        response = await makeRequest(newToken);
+        nextToken = await refreshAccessToken();
+        // Drain queued waiters first so they retry with the new token.
+        refreshQueue.splice(0).forEach((cb) => cb(nextToken));
       } catch (err) {
         isRefreshing = false;
-        refreshQueue = [];
+        refreshQueue.splice(0).forEach((cb) => cb(null));
+        tokenStorage.clear();
+        broadcastAuthExpired();
         throw err;
       }
+      isRefreshing = false;
     } else {
-      await new Promise<void>((resolve) => {
-        refreshQueue.push((newToken) => {
-          makeRequest(newToken).then((r) => {
-            response = r;
-            resolve();
-          });
-        });
+      nextToken = await new Promise<string | null>((resolve) => {
+        refreshQueue.push(resolve);
       });
+      if (!nextToken) {
+        // Refresh-in-progress failed for the leader; everyone bails.
+        throw new Error("Session expired");
+      }
     }
+    // Retry the original request with the fresh token. This `await` is the
+    // bug fix from before — every queued caller now reads its own response.
+    response = await makeRequest(nextToken);
   }
 
   if (!response.ok) {
