@@ -1,10 +1,13 @@
 import { useCallback } from 'react';
+import { getPreference } from './usePreferences';
 
 type HapticPattern = 'light' | 'medium' | 'heavy' | 'success' | 'error' | 'selection';
 
 export const useHaptics = () => {
   const vibrate = useCallback((pattern: HapticPattern = 'light') => {
     if (!navigator.vibrate) return;
+    // Respect the user's haptic-feedback preference from the Settings page.
+    if (!getPreference('haptic_feedback')) return;
 
     const patterns: Record<HapticPattern, number | number[]> = {
       light: 10,

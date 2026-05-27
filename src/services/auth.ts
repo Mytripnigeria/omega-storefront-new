@@ -29,6 +29,22 @@ export interface LoginPayload {
   password: string;
 }
 
+export interface PhoneOtpRequestPayload {
+  businessId: string;
+  phone: string;
+  purpose?: "login" | "register";
+}
+
+export interface PhoneOtpVerifyPayload {
+  businessId: string;
+  phone: string;
+  code: string;
+  /** Required only when the phone has no existing customer record. */
+  firstName?: string;
+  lastName?: string;
+  referredByCode?: string;
+}
+
 export const authApi = {
   register(payload: RegisterPayload) {
     return apiRequest<AuthResult>("/auth/storefront/register", {
@@ -44,6 +60,18 @@ export const authApi = {
   },
   logout() {
     return apiRequest<void>("/auth/storefront/logout", { method: "POST" });
+  },
+  requestPhoneOtp(payload: PhoneOtpRequestPayload) {
+    return apiRequest<{ ok: true; phone: string }>(
+      "/auth/storefront/phone/request-otp",
+      { method: "POST", body: JSON.stringify(payload) },
+    );
+  },
+  verifyPhoneOtp(payload: PhoneOtpVerifyPayload) {
+    return apiRequest<AuthResult>("/auth/storefront/phone/verify", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   },
 };
 

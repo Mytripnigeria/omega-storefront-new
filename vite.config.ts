@@ -13,8 +13,14 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     mode === "development" && componentTagger(),
+    // injectManifest lets us own the service worker file (src/sw.ts) so we
+    // can handle web push and notification clicks alongside the precache /
+    // runtime cache that vite-plugin-pwa injects via __WB_MANIFEST.
     VitePWA({
       registerType: "autoUpdate",
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.ts",
       includeAssets: ["favicon.ico", "robots.txt"],
       manifest: {
         name: "Mr. Jollof",
@@ -44,7 +50,7 @@ export default defineConfig(({ mode }) => ({
           },
         ],
       },
-      workbox: {
+      injectManifest: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
       },
     }),

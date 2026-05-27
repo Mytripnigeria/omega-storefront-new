@@ -1,90 +1,162 @@
-import { X, Phone, Mail } from 'lucide-react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { X, Phone, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { useAuth } from '@/context/AuthContext';
 
 interface SignInSheetProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+type PhoneStep = 'idle' | 'phone' | 'code';
+
+/**
+ * Lightweight sign-in prompt shown from the bottom nav for guest users. Two
+ * paths:
+ *  • email + password — defers to the dedicated /login and /register pages.
+ *  • phone OTP — inline 2-step flow (request code → verify), uses AuthContext
+ *    so the resulting JWT lands in the same place the email login uses.
+ */
 export const SignInSheet = ({ isOpen, onClose }: SignInSheetProps) => {
   useBodyScrollLock(isOpen);
-  
-  const navigate = useNavigate();
-  const [method, setMethod] = useState<'phone' | 'email' | null>(null);
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
 
-  const handleContinue = () => {
-    // Handle sign in logic - navigate to profile
+  const navigate = useNavigate();
+  const { requestPhoneOtp, loginWithPhoneOtp } = useAuth();
+
+  const [step, setStep] = useState<PhoneStep>('idle');
+  const [phone, setPhone] = useState('');
+  const [code, setCode] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const businessId = (import.meta.env.VITE_BUSINESS_ID ?? '') as string;
+
+  const go = (path: string) => {
     onClose();
-    navigate('/profile');
+    navigate(path);
+  };
+
+  const resetPhoneFlow = () => {
+    setStep('idle');
+    setPhone('');
+    setCode('');
+    setFirstName('');
+    setLastName('');
+    setError(null);
+  };
+
+  const closeAndReset = () => {
+    resetPhoneFlow();
+    onClose();
+  };
+
+  const sendCode = async () => {
+    if (!phone.trim()) {
+      setError('Enter your phone number');
+      return;
+    }
+    setError(null);
+    setBusy(true);
+    try {
+      await requestPhoneOtp({ businessId, phone: phone.trim(), purpose: 'login' });
+      setStep('code');
+    } catch (e) {
+      setError((e as Error).message ?? "Couldn't send code");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const verifyCode = async () => {
+    if (!code.trim()) {
+      setError('Enter the code from your SMS');
+      return;
+    }
+    setError(null);
+    setBusy(true);
+    try {
+      await loginWithPhoneOtp({
+        businessId,
+        phone: phone.trim(),
+        code: code.trim(),
+        firstName: firstName.trim() || undefined,
+        lastName: lastName.trim() || undefined,
+      });
+      closeAndReset();
+    } catch (e) {
+      const msg = (e as Error).message ?? "Couldn't verify code";
+      // Backend asks for firstName + lastName when this is a first-time signup.
+      if (/first.*last.*name/i.test(msg)) {
+        setError('New here? Add your name to finish signing up.');
+      } else {
+        setError(msg);
+      }
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
     <>
       {/* Backdrop */}
-      <div 
+      <div
         className={cn(
-          "fixed inset-0 bg-foreground/50 z-50 transition-opacity duration-300 safari-fix",
-          isOpen ? "opacity-100" : "opacity-0 pointer-events-none",
-          "lg:flex lg:items-center lg:justify-center"
+          'fixed inset-0 bg-foreground/50 z-50 transition-opacity duration-300 safari-fix',
+          isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none',
+          'lg:flex lg:items-center lg:justify-center',
         )}
-        onClick={onClose}
+        onClick={closeAndReset}
       />
 
       {/* Sheet - Bottom sheet on mobile, centered dialog on desktop */}
-      <div 
+      <div
         className={cn(
-          "fixed z-50 bg-card shadow-none border border-border transition-all duration-300 safari-fix",
-          // Mobile: bottom sheet
-          "inset-x-0 bottom-0 rounded-t-3xl",
-          isOpen ? "translate-y-0" : "translate-y-full pointer-events-none invisible",
-          // Desktop: centered dialog
-          "lg:inset-auto lg:top-1/2 lg:left-1/2 lg:-translate-x-1/2 lg:rounded-2xl lg:w-full lg:max-w-md",
-          isOpen ? "lg:-translate-y-1/2 lg:opacity-100 lg:visible lg:pointer-events-auto" : "lg:-translate-y-1/2 lg:opacity-0 lg:pointer-events-none lg:invisible"
+          'fixed z-50 bg-card shadow-none border border-border transition-all duration-300 safari-fix',
+          'inset-x-0 bottom-0 rounded-t-3xl',
+          isOpen ? 'translate-y-0' : 'translate-y-full pointer-events-none invisible',
+          'lg:inset-auto lg:top-1/2 lg:left-1/2 lg:-translate-x-1/2 lg:rounded-2xl lg:w-full lg:max-w-md',
+          isOpen
+            ? 'lg:-translate-y-1/2 lg:opacity-100 lg:visible lg:pointer-events-auto'
+            : 'lg:-translate-y-1/2 lg:opacity-0 lg:pointer-events-none lg:invisible',
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-center justify-between p-5 pb-3">
-          <h2 className="text-lg font-bold">Sign in</h2>
+          <h2 className="text-lg font-bold">
+            {step === 'idle' ? 'Sign in' : step === 'phone' ? 'Continue with phone' : 'Enter your code'}
+          </h2>
           <button
-            onClick={onClose}
+            onClick={closeAndReset}
             className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center"
+            aria-label="Close"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="px-5 safe-bottom-pad">
-          {!method ? (
-            <div className="space-y-3">
-              <p className="text-muted-foreground text-sm mb-4">
+        <div className="px-5 pb-6 safe-bottom-pad space-y-3">
+          {step === 'idle' && (
+            <>
+              <p className="text-muted-foreground text-sm mb-2">
                 Sign in to save your orders, earn points, and more.
               </p>
-
-              <button
-                onClick={() => setMethod('phone')}
-                className="w-full flex items-center gap-3 p-4 border border-border rounded-xl hover:bg-secondary/50 transition-colors"
+              <Button onClick={() => go('/login')} className="w-full h-12 rounded-full">
+                Sign in
+              </Button>
+              <Button
+                onClick={() => go('/register')}
+                variant="outline"
+                className="w-full h-12 rounded-full"
               >
-                <Phone className="w-5 h-5" />
-                <span className="font-medium">Continue with Phone</span>
-              </button>
-
-              <button
-                onClick={() => setMethod('email')}
-                className="w-full flex items-center gap-3 p-4 border border-border rounded-xl hover:bg-secondary/50 transition-colors"
-              >
-                <Mail className="w-5 h-5" />
-                <span className="font-medium">Continue with Email</span>
-              </button>
-
-              <div className="relative my-4">
+                Create an account
+              </Button>
+              <div className="relative my-1">
                 <div className="absolute inset-0 flex items-center">
                   <span className="w-full border-t border-border" />
                 </div>
@@ -92,68 +164,114 @@ export const SignInSheet = ({ isOpen, onClose }: SignInSheetProps) => {
                   <span className="bg-card px-2 text-muted-foreground">or</span>
                 </div>
               </div>
+              <Button
+                onClick={() => setStep('phone')}
+                variant="outline"
+                className="w-full h-12 rounded-full"
+              >
+                <Phone className="w-4 h-4 mr-2" />
+                Continue with phone
+              </Button>
+            </>
+          )}
 
-              <button className="w-full flex items-center justify-center gap-3 p-4 border border-border rounded-xl hover:bg-secondary/50 transition-colors">
-                <svg className="w-5 h-5" viewBox="0 0 24 24">
-                  <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                  <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                </svg>
-                <span className="font-medium">Continue with Google</span>
-              </button>
-
-              <button className="w-full flex items-center justify-center gap-3 p-4 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors">
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
-                </svg>
-                <span className="font-medium">Continue with Apple</span>
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-4">
+          {step === 'phone' && (
+            <>
               <button
-                onClick={() => setMethod(null)}
+                onClick={resetPhoneFlow}
                 className="text-sm text-muted-foreground hover:text-foreground"
               >
                 ← Back
               </button>
-
-              {method === 'phone' ? (
-                <div>
-                  <label className="text-sm font-medium">Phone number</label>
-                  <Input
-                    type="tel"
-                    placeholder="+234 800 000 0000"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="mt-1.5 h-12"
-                  />
-                </div>
-              ) : (
-                <div>
-                  <label className="text-sm font-medium">Email address</label>
-                  <Input
-                    type="email"
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="mt-1.5 h-12"
-                  />
-                </div>
-              )}
-
-              <Button 
-                onClick={handleContinue}
+              <div>
+                <label className="text-sm font-medium">Phone number</label>
+                <Input
+                  type="tel"
+                  placeholder="+234 800 000 0000"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="mt-1.5 h-12"
+                  autoFocus
+                />
+                <p className="text-xs text-muted-foreground mt-2">
+                  We'll text you a 6-digit code to sign in.
+                </p>
+              </div>
+              {error && <p className="text-sm text-destructive">{error}</p>}
+              <Button
+                onClick={sendCode}
+                disabled={busy}
                 className="w-full h-12 rounded-full"
               >
-                Continue
+                {busy && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Send code
               </Button>
+            </>
+          )}
 
+          {step === 'code' && (
+            <>
+              <button
+                onClick={() => {
+                  setStep('phone');
+                  setCode('');
+                  setError(null);
+                }}
+                className="text-sm text-muted-foreground hover:text-foreground"
+              >
+                ← Use a different number
+              </button>
+              <p className="text-sm text-muted-foreground">
+                Enter the code we sent to{' '}
+                <span className="font-medium text-foreground">{phone}</span>.
+              </p>
+              <div>
+                <label className="text-sm font-medium">Verification code</label>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="123456"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  className="mt-1.5 h-12 tracking-widest text-center text-lg"
+                  autoFocus
+                  maxLength={8}
+                />
+              </div>
+              {error && (
+                <div className="space-y-3 pt-1">
+                  <p className="text-sm text-destructive">{error}</p>
+                  {/first.*last.*name/i.test(error ?? '') && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        placeholder="First name"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        className="h-12"
+                      />
+                      <Input
+                        placeholder="Last name"
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        className="h-12"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+              <Button
+                onClick={verifyCode}
+                disabled={busy}
+                className="w-full h-12 rounded-full"
+              >
+                {busy && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Verify and continue
+              </Button>
               <p className="text-xs text-muted-foreground text-center">
                 By continuing, you agree to our Terms of Service and Privacy Policy.
               </p>
-            </div>
+            </>
           )}
         </div>
       </div>

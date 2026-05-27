@@ -1,81 +1,86 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bell, Moon, Globe, Shield, Smartphone, MapPin, Volume2, Vibrate, Eye } from 'lucide-react';
+import { ArrowLeft, Bell, Moon, Smartphone, Volume2, Vibrate, Eye } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { PageTransition } from '@/components/PageTransition';
 import { useTheme } from '@/context/ThemeContext';
-import { toast } from 'sonner';
+import { useStorefront } from '@/context/StorefrontContext';
+import { useAuth } from '@/context/AuthContext';
+import { useWebPush } from '@/hooks/useWebPush';
+import { usePreference, type PreferenceKey } from '@/hooks/usePreferences';
 
 interface SettingItem {
-  id: string;
+  key: PreferenceKey;
   icon: React.ElementType;
   label: string;
   description: string;
 }
 
+// Only client-side preferences we can genuinely honour are exposed here.
+// Push notifications, location services, biometric login, and multi-language
+// each need backend or platform support that isn't built yet — they were
+// previously rendered as no-op toggles and have been removed.
+const PREFERENCES: SettingItem[] = [
+  {
+    key: 'sound_effects',
+    icon: Volume2,
+    label: 'Sound Effects',
+    description: 'Play sounds for notifications and actions',
+  },
+  {
+    key: 'haptic_feedback',
+    icon: Vibrate,
+    label: 'Haptic Feedback',
+    description: 'Vibration feedback on interactions',
+  },
+  {
+    key: 'order_tracking',
+    icon: Eye,
+    label: 'Live Order Tracking',
+    description: 'Auto-refresh the order tracking screen',
+  },
+  {
+    key: 'data_saver',
+    icon: Smartphone,
+    label: 'Data Saver Mode',
+    description: 'Reduce data usage where possible',
+  },
+];
+
+const PreferenceRow = ({ item }: { item: SettingItem }) => {
+  const [enabled, setEnabled] = usePreference(item.key);
+  const Icon = item.icon;
+  return (
+    <div className="flex items-center gap-4 p-4">
+      <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center flex-shrink-0">
+        <Icon className="w-5 h-5 text-muted-foreground" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-medium">{item.label}</p>
+        <p className="text-sm text-muted-foreground truncate">{item.description}</p>
+      </div>
+      <Switch checked={enabled} onCheckedChange={setEnabled} />
+    </div>
+  );
+};
+
 const Settings = () => {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
-  
-  // Settings that use local state
-  const staticSettings: SettingItem[] = [
-    {
-      id: 'push_notifications',
-      icon: Bell,
-      label: 'Push Notifications',
-      description: 'Receive order updates and promotions',
-    },
-    {
-      id: 'location_services',
-      icon: MapPin,
-      label: 'Location Services',
-      description: 'Allow access to your location for delivery',
-    },
-    {
-      id: 'sound_effects',
-      icon: Volume2,
-      label: 'Sound Effects',
-      description: 'Play sounds for notifications and actions',
-    },
-    {
-      id: 'haptic_feedback',
-      icon: Vibrate,
-      label: 'Haptic Feedback',
-      description: 'Vibration feedback on interactions',
-    },
-    {
-      id: 'biometric_login',
-      icon: Shield,
-      label: 'Biometric Login',
-      description: 'Use fingerprint or face recognition',
-    },
-    {
-      id: 'order_tracking',
-      icon: Eye,
-      label: 'Live Order Tracking',
-      description: 'Show real-time order progress',
-    },
-    {
-      id: 'language',
-      icon: Globe,
-      label: 'Multi-language',
-      description: 'Enable language switching',
-    },
-    {
-      id: 'data_saver',
-      icon: Smartphone,
-      label: 'Data Saver Mode',
-      description: 'Reduce data usage by lowering image quality',
-    },
-  ];
+  const { config } = useStorefront();
+  const { isAuthenticated } = useAuth();
+  const push = useWebPush();
 
-  const handleDarkModeToggle = () => {
-    toggleTheme();
-    toast.success(`Dark mode ${theme === 'light' ? 'enabled' : 'disabled'}`);
-  };
+  const brand = config?.storeName ?? '';
+  const year = new Date().getFullYear();
 
-  const handleSettingToggle = (label: string) => {
-    toast.success(`${label} toggled`);
+  const handlePushToggle = (next: boolean) => {
+    if (next) void push.enable();
+    else void push.disable();
   };
+  const pushEnabled = push.status === 'subscribed';
+  const pushBlocked = push.status === 'permission-denied';
+  const pushUnsupported = push.status === 'unsupported';
+  const pushUnconfigured = push.status === 'unconfigured';
 
   return (
     <PageTransition>
@@ -83,7 +88,11 @@ const Settings = () => {
         {/* Header */}
         <header className="sticky top-0 z-40 bg-background border-b border-border">
           <div className="flex items-center h-14 px-4 max-w-7xl mx-auto lg:px-6">
-            <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+            <button
+              onClick={() => navigate(-1)}
+              className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Go back"
+            >
               <ArrowLeft className="w-5 h-5" />
             </button>
             <h1 className="text-lg font-bold ml-4">Settings</h1>
@@ -92,7 +101,7 @@ const Settings = () => {
 
         <div className="max-w-2xl mx-auto px-4 lg:px-6 py-6">
           <div className="bg-card rounded-2xl border border-border overflow-hidden divide-y divide-border">
-            {/* Dark Mode Toggle - Special handling */}
+            {/* Dark Mode toggle drives ThemeContext directly. */}
             <div className="flex items-center gap-4 p-4">
               <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center flex-shrink-0">
                 <Moon className="w-5 h-5 text-muted-foreground" />
@@ -101,37 +110,50 @@ const Settings = () => {
                 <p className="font-medium">Dark Mode</p>
                 <p className="text-sm text-muted-foreground truncate">Use dark theme throughout the app</p>
               </div>
-              <Switch
-                checked={theme === 'dark'}
-                onCheckedChange={handleDarkModeToggle}
-              />
+              <Switch checked={theme === 'dark'} onCheckedChange={toggleTheme} />
             </div>
 
-            {/* Other Settings */}
-            {staticSettings.map((setting) => (
-              <div
-                key={setting.id}
-                className="flex items-center gap-4 p-4"
-              >
+            {PREFERENCES.map((item) => (
+              <PreferenceRow key={item.key} item={item} />
+            ))}
+
+            {/* Web-push subscription — only meaningful for logged-in customers. */}
+            {isAuthenticated && !pushUnsupported && (
+              <div className="flex items-center gap-4 p-4">
                 <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center flex-shrink-0">
-                  <setting.icon className="w-5 h-5 text-muted-foreground" />
+                  <Bell className="w-5 h-5 text-muted-foreground" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium">{setting.label}</p>
-                  <p className="text-sm text-muted-foreground truncate">{setting.description}</p>
+                  <p className="font-medium">Push Notifications</p>
+                  <p className="text-sm text-muted-foreground truncate">
+                    {pushBlocked
+                      ? 'Blocked in your browser — enable notifications in site settings to turn this on.'
+                      : pushUnconfigured
+                        ? "Not available yet — the merchant hasn't enabled push."
+                        : push.error
+                          ? push.error
+                          : "Order updates delivered to your device when the app isn't open."}
+                  </p>
                 </div>
                 <Switch
-                  defaultChecked={['push_notifications', 'location_services', 'sound_effects', 'haptic_feedback', 'order_tracking'].includes(setting.id)}
-                  onCheckedChange={() => handleSettingToggle(setting.label)}
+                  checked={pushEnabled}
+                  disabled={
+                    push.isBusy ||
+                    pushBlocked ||
+                    pushUnconfigured ||
+                    push.status === 'loading'
+                  }
+                  onCheckedChange={handlePushToggle}
                 />
               </div>
-            ))}
+            )}
           </div>
 
-          {/* App Version */}
+          {/* Footer credit reads the live business name and current year. */}
           <div className="mt-8 text-center">
-            <p className="text-sm text-muted-foreground">App Version 1.0.0</p>
-            <p className="text-xs text-muted-foreground mt-1">© 2024 Toasty Foods. All rights reserved.</p>
+            <p className="text-xs text-muted-foreground">
+              {brand ? `© ${year} ${brand}. All rights reserved.` : `© ${year}. All rights reserved.`}
+            </p>
           </div>
         </div>
       </div>

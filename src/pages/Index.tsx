@@ -151,12 +151,24 @@ const Index = () => {
               alt={config?.storeName ?? 'Storefront'}
               className="h-14 w-auto mb-2"
             />
-            <button 
+            <button
               onClick={() => setIsStoreInfoOpen(true)}
-              className="flex items-center gap-1 text-sm text-success hover:text-success/80 transition-colors"
+              className={`flex items-center gap-1 text-sm transition-colors ${
+                config?.storeStatus === 'live'
+                  ? 'text-success hover:text-success/80'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
             >
               <Clock className="w-3.5 h-3.5" />
-              <span>Open · Closes 10pm</span>
+              <span>
+                {config?.storeStatus === 'live'
+                  ? 'Open'
+                  : config?.storeStatus === 'maintenance'
+                  ? 'Under maintenance'
+                  : config?.storeStatus === 'offline'
+                  ? 'Closed'
+                  : 'Store info'}
+              </span>
             </button>
           </div>
 

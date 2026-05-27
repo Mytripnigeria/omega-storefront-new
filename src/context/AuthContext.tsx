@@ -12,6 +12,8 @@ import {
   profileApi,
   type CustomerProfile,
   type LoginPayload,
+  type PhoneOtpRequestPayload,
+  type PhoneOtpVerifyPayload,
   type RegisterPayload,
   type UserSession,
 } from "@/services/auth";
@@ -26,6 +28,8 @@ interface AuthContextValue {
   register: (payload: RegisterPayload) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  requestPhoneOtp: (payload: PhoneOtpRequestPayload) => Promise<void>;
+  loginWithPhoneOtp: (payload: PhoneOtpVerifyPayload) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -116,6 +120,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [persistAuth],
   );
 
+  const requestPhoneOtp = useCallback(async (payload: PhoneOtpRequestPayload) => {
+    await authApi.requestPhoneOtp(payload);
+  }, []);
+
+  const loginWithPhoneOtp = useCallback(
+    async (payload: PhoneOtpVerifyPayload) => {
+      const result = await authApi.verifyPhoneOtp(payload);
+      await persistAuth(result);
+    },
+    [persistAuth],
+  );
+
   const logout = useCallback(async () => {
     try {
       await authApi.logout();
@@ -137,8 +153,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       register,
       logout,
       refreshProfile,
+      requestPhoneOtp,
+      loginWithPhoneOtp,
     }),
-    [user, profile, isLoading, login, register, logout, refreshProfile],
+    [
+      user,
+      profile,
+      isLoading,
+      login,
+      register,
+      logout,
+      refreshProfile,
+      requestPhoneOtp,
+      loginWithPhoneOtp,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
