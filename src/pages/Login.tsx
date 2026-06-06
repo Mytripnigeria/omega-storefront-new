@@ -5,8 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
-
-const BUSINESS_ID = (import.meta.env.VITE_BUSINESS_ID ?? "") as string;
+import { getBusinessId } from "@/lib/business";
+import { GoogleAuthButton } from "@/components/GoogleAuthButton";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -23,13 +23,14 @@ export default function Login() {
       toast.error("Email and password are required");
       return;
     }
-    if (!BUSINESS_ID) {
+    const businessId = getBusinessId();
+    if (!businessId) {
       toast.error("Storefront is not linked to a business yet");
       return;
     }
     setSubmitting(true);
     try {
-      await login({ businessId: BUSINESS_ID, email, password });
+      await login({ businessId, email, password });
       toast.success("Welcome back!");
       // Send the visitor back where they were trying to go.
       navigate(redirectTo, { replace: true });
@@ -75,6 +76,20 @@ export default function Login() {
             {submitting ? "Signing in..." : "Sign In"}
           </Button>
         </form>
+
+        <div className="flex items-center gap-3">
+          <span className="h-px flex-1 bg-border" />
+          <span className="text-xs text-muted-foreground">or</span>
+          <span className="h-px flex-1 bg-border" />
+        </div>
+
+        <GoogleAuthButton
+          text="signin_with"
+          onSuccess={() => {
+            toast.success("Welcome back!");
+            navigate(redirectTo, { replace: true });
+          }}
+        />
 
         <p className="text-center text-sm">
           Don't have an account?{" "}

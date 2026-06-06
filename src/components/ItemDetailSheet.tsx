@@ -10,6 +10,9 @@ import { useMenu } from '@/context/MenuContext';
 import { toast } from 'sonner';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { useHaptics } from '@/hooks/useHaptics';
+import { computeLineUnitPrice } from '@/lib/pricing';
+import { playSound } from '@/lib/sound';
+import { menuApi } from '@/services/menu';
 
 interface ItemDetailSheetProps {
   item: MenuItem | null;
@@ -34,15 +37,41 @@ export const ItemDetailSheet = ({ item, isOpen, onClose }: ItemDetailSheetProps)
   const [selectedOptions, setSelectedOptions] = useState<{ [key: string]: string[] }>({});
   const [specialRequest, setSpecialRequest] = useState('');
 
-  const { menuItems } = useMenu();
+  const { menuItems, store } = useMenu();
 
-  // Get upsell items (same category or random)
-  const upsellItems = useMemo(() => {
-    if (!item || item.isCombo) return [];
-    return menuItems
-      .filter(i => i.id !== item.id && i.category === item.category)
+  // "Goes well with" — products most ordered alongside this one (falls back to
+  // same-category items when there's no order history yet).
+  const [upsellItems, setUpsellItems] = useState<MenuItem[]>([]);
+  useEffect(() => {
+    if (!item || item.isCombo) {
+      setUpsellItems([]);
+      return;
+    }
+    const sameCategory = menuItems
+      .filter((i) => i.id !== item.id && i.category === item.category)
       .slice(0, 3);
-  }, [item, menuItems]);
+    if (!store?.id) {
+      setUpsellItems(sameCategory);
+      return;
+    }
+    let cancelled = false;
+    void menuApi
+      .recommendations(store.id, { productId: item.id, limit: 6 })
+      .then((prods) => {
+        if (cancelled) return;
+        const recommended = prods
+          .map((p) => menuItems.find((m) => m.id === p.id))
+          .filter((m): m is MenuItem => !!m && m.id !== item.id)
+          .slice(0, 3);
+        setUpsellItems(recommended.length ? recommended : sameCategory);
+      })
+      .catch(() => {
+        if (!cancelled) setUpsellItems(sameCategory);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [item, menuItems, store?.id]);
 
   // Combo calculations
   const comboDetails = useMemo(() => {
@@ -63,21 +92,8 @@ export const ItemDetailSheet = ({ item, isOpen, onClose }: ItemDetailSheetProps)
     }));
   };
 
-  const calculateTotal = () => {
-    let total = item.price * quantity;
-    Object.entries(selectedOptions).forEach(([optionId, choices]) => {
-      const option = item.options?.find(o => o.id === optionId);
-      if (option) {
-        choices.forEach(choiceId => {
-          const choice = option.choices.find(c => c.id === choiceId);
-          if (choice?.price) {
-            total += choice.price * quantity;
-          }
-        });
-      }
-    });
-    return total;
-  };
+  const calculateTotal = () =>
+    computeLineUnitPrice(item, selectedOptions) * quantity;
 
   const handleAddToCart = () => {
     // Enforce required + max-selection rules before sending to the cart so
@@ -99,6 +115,7 @@ export const ItemDetailSheet = ({ item, isOpen, onClose }: ItemDetailSheetProps)
       }
     }
     triggerHaptic('success');
+    playSound('success');
     addItem(item, quantity, selectedOptions, specialRequest);
     setQuantity(1);
     setSelectedOptions({});
@@ -251,7 +268,9 @@ export const ItemDetailSheet = ({ item, isOpen, onClose }: ItemDetailSheetProps)
                       <div className="flex-1 text-left">
                         <p className="font-medium text-sm">{choice.name}</p>
                         {choice.price && choice.price > 0 && (
-                          <p className="text-xs text-muted-foreground">+₦{choice.price.toLocaleString()}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {option.isVariation ? "" : "+"}₦{choice.price.toLocaleString()}
+                          </p>
                         )}
                       </div>
                       {selectedOptions[option.id]?.[0] === choice.id && (

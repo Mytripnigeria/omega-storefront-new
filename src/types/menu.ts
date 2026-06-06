@@ -24,6 +24,8 @@ export interface ItemOption {
   choices: OptionChoice[];
   required?: boolean;
   maxSelections?: number;
+  /** True for the product's variation group (its price replaces the base price). */
+  isVariation?: boolean;
 }
 
 export interface OptionChoice {

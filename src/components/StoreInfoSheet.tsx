@@ -3,6 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Clock, MapPin, Phone, Mail } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useMenu } from '@/context/MenuContext';
+import { getStoreStatus } from '@/lib/format';
+import { cn } from '@/lib/utils';
 
 interface StoreInfoSheetProps {
   isOpen: boolean;
@@ -24,9 +26,25 @@ const StoreInfoContent = () => {
   const todayKey = new Date()
     .toLocaleDateString('en-US', { weekday: 'long' })
     .toLowerCase();
+  const status = getStoreStatus(store?.openingHours ?? null);
 
   return (
     <div className="space-y-6">
+      {/* Live status */}
+      {status && (
+        <div
+          className={cn(
+            'flex items-center gap-2 text-sm font-medium rounded-lg px-3 py-2',
+            status.isOpen
+              ? 'bg-success/10 text-success'
+              : 'bg-muted text-muted-foreground',
+          )}
+        >
+          <Clock className="w-4 h-4" />
+          <span>{status.label}</span>
+        </div>
+      )}
+
       {/* Operating Hours */}
       <div>
         <div className="flex items-center gap-2 mb-3">

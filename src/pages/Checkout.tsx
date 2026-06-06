@@ -33,6 +33,12 @@ import {
   paymentMethodsApi,
   type CustomerPaymentMethod,
 } from "@/services/payment-methods";
+import {
+  storefrontApi,
+  type PublicPaymentMethod,
+} from "@/services/storefront";
+import { formatScheduleTime } from "@/lib/format";
+import { computeLineUnitPrice } from "@/lib/pricing";
 
 type PaymentMethod = "paystack" | "wallet" | "points" | "cash";
 
@@ -117,7 +123,12 @@ const Checkout = () => {
   const { store } = useMenu();
 
   const [tipPercent, setTipPercent] = useState(0);
+  const [tipMode, setTipMode] = useState<"percent" | "custom">("percent");
+  const [customTip, setCustomTip] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("paystack");
+  const [enabledMethods, setEnabledMethods] = useState<
+    PublicPaymentMethod[] | null
+  >(null);
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<{
     code: string;
@@ -137,6 +148,14 @@ const Checkout = () => {
     void paymentMethodsApi.list().then(setSavedCards).catch(() => undefined);
   }, [isAuthenticated]);
 
+  // Load the merchant's enabled payment methods (public).
+  useEffect(() => {
+    void storefrontApi
+      .getPaymentMethods()
+      .then(setEnabledMethods)
+      .catch(() => setEnabledMethods(null));
+  }, []);
+
   // Default to first address when delivery + nothing selected
   useEffect(() => {
     if (orderType !== "delivery" || selectedAddressId) return;
@@ -144,8 +163,36 @@ const Checkout = () => {
     if (def) setSelectedAddressId(def.id);
   }, [addresses, orderType, selectedAddressId, setSelectedAddressId]);
 
-  const tipAmount = Math.round(subtotal * (tipPercent / 100));
+  const taxRate = Number(config?.taxRate ?? 0.075);
+  const tipAmount =
+    tipMode === "custom"
+      ? Math.max(0, Math.round(Number(customTip) || 0))
+      : Math.round(subtotal * (tipPercent / 100));
   const couponDiscount = appliedCoupon?.discount ?? 0;
+
+  // Which payment options the merchant has enabled (dashboard-driven). Wallet is
+  // gated by the storefront's walletEnabled flag + an available balance.
+  const methodTypes = new Set((enabledMethods ?? []).map((m) => m.type));
+  const showPaystack =
+    !enabledMethods || methodTypes.has("card") || methodTypes.has("pos");
+  const showCash = !enabledMethods || methodTypes.has("cash");
+  const showWallet =
+    config?.walletEnabled !== false &&
+    !!profile &&
+    Number(profile.walletBalance ?? 0) > 0;
+
+  // Keep the selected payment method valid as availability resolves.
+  useEffect(() => {
+    if (paymentMethod === "paystack" && !showPaystack) {
+      setPaymentMethod(showCash ? "cash" : showWallet ? "wallet" : "paystack");
+    } else if (paymentMethod === "cash" && !showCash) {
+      setPaymentMethod(showPaystack ? "paystack" : showWallet ? "wallet" : "cash");
+    } else if (paymentMethod === "wallet" && !showWallet) {
+      setPaymentMethod(showPaystack ? "paystack" : showCash ? "cash" : "wallet");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showPaystack, showCash, showWallet]);
+
   const pointsBalance = profile?.points ?? 0;
   // Naira value of the customer's full points balance + how many points they
   // need to redeem to cover (at most) the current total. Both come from the
@@ -448,7 +495,7 @@ const Checkout = () => {
             </div>
             <div className="flex items-center gap-2 mt-3 text-sm text-muted-foreground">
               <Clock className="w-4 h-4" />
-              <span>{selectedTime || "ASAP"}</span>
+              <span>{formatScheduleTime(selectedTime)}</span>
             </div>
           </section>
 
@@ -462,7 +509,7 @@ const Checkout = () => {
                     {item.quantity}× {item.menuItem.name}
                   </span>
                   <span className="font-medium">
-                    ₦{(item.menuItem.price * item.quantity).toLocaleString()}
+                    ₦{(computeLineUnitPrice(item.menuItem, item.selectedOptions) * item.quantity).toLocaleString()}
                   </span>
                 </div>
               ))}
@@ -516,14 +563,17 @@ const Checkout = () => {
           {/* Tip */}
           <section className="bg-card rounded-2xl p-4">
             <h3 className="font-semibold mb-3">Add tip</h3>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-5 gap-2">
               {[0, 5, 10, 15].map((p) => (
                 <button
                   key={p}
-                  onClick={() => setTipPercent(p)}
+                  onClick={() => {
+                    setTipMode("percent");
+                    setTipPercent(p);
+                  }}
                   className={cn(
                     "py-2 rounded-lg border text-sm font-medium",
-                    tipPercent === p
+                    tipMode === "percent" && tipPercent === p
                       ? "border-primary bg-primary/5"
                       : "border-border",
                   )}
@@ -531,13 +581,42 @@ const Checkout = () => {
                   {p === 0 ? "None" : `${p}%`}
                 </button>
               ))}
+              <button
+                onClick={() => setTipMode("custom")}
+                className={cn(
+                  "py-2 rounded-lg border text-sm font-medium",
+                  tipMode === "custom"
+                    ? "border-primary bg-primary/5"
+                    : "border-border",
+                )}
+              >
+                Custom
+              </button>
             </div>
+            {tipMode === "custom" && (
+              <div className="mt-3 relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                  ₦
+                </span>
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  placeholder="Enter tip amount"
+                  value={customTip}
+                  onChange={(e) => setCustomTip(e.target.value)}
+                  className="pl-7"
+                  autoFocus
+                />
+              </div>
+            )}
           </section>
 
           {/* Payment method */}
           <section className="bg-card rounded-2xl p-4">
             <h3 className="font-semibold mb-3">Payment</h3>
             <div className="space-y-2">
+              {showPaystack && (
               <button
                 onClick={() => setPaymentMethod("paystack")}
                 className={cn(
@@ -560,6 +639,7 @@ const Checkout = () => {
                   <Check className="w-4 h-4 text-primary" />
                 )}
               </button>
+              )}
 
               {savedCards.length > 0 && paymentMethod === "paystack" && (
                 <div className="ml-8 space-y-1">
@@ -593,7 +673,7 @@ const Checkout = () => {
                 </div>
               )}
 
-              {profile && profile.walletBalance > 0 && (
+              {showWallet && (
                 <button
                   onClick={() => setPaymentMethod("wallet")}
                   className={cn(
@@ -618,6 +698,7 @@ const Checkout = () => {
                 </button>
               )}
 
+              {showCash && (
               <button
                 onClick={() => setPaymentMethod("cash")}
                 className={cn(
@@ -642,6 +723,7 @@ const Checkout = () => {
                   <Check className="w-4 h-4 text-primary" />
                 )}
               </button>
+              )}
             </div>
           </section>
 
@@ -684,7 +766,9 @@ const Checkout = () => {
               <span>₦{subtotal.toLocaleString()}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Tax (7.5%)</span>
+              <span className="text-muted-foreground">
+                Tax ({+(taxRate * 100).toFixed(2)}%)
+              </span>
               <span>₦{tax.toLocaleString()}</span>
             </div>
             {tipAmount > 0 && (

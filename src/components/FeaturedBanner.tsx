@@ -2,13 +2,20 @@ import { ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { storefrontApi, type StorefrontBanner } from "@/services/storefront";
+import { usePreference } from "@/hooks/usePreferences";
 
 export const FeaturedBanner = () => {
   const navigate = useNavigate();
   const [banners, setBanners] = useState<StorefrontBanner[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [dataSaver] = usePreference("data_saver");
 
   useEffect(() => {
+    // Skip the image-heavy banner fetch entirely when data saver is on.
+    if (dataSaver) {
+      setIsLoading(false);
+      return;
+    }
     let cancelled = false;
     void (async () => {
       try {
@@ -23,9 +30,9 @@ export const FeaturedBanner = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [dataSaver]);
 
-  if (isLoading || banners.length === 0) return null;
+  if (dataSaver || isLoading || banners.length === 0) return null;
 
   const handleClick = (banner: StorefrontBanner) => {
     if (!banner.actionUrl) return;

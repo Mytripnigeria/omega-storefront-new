@@ -5,8 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
-
-const BUSINESS_ID = (import.meta.env.VITE_BUSINESS_ID ?? "") as string;
+import { getBusinessId } from "@/lib/business";
+import { GoogleAuthButton } from "@/components/GoogleAuthButton";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -45,14 +45,15 @@ export default function Register() {
       toast.error("Password must be at least 8 characters");
       return;
     }
-    if (!BUSINESS_ID) {
+    const businessId = getBusinessId();
+    if (!businessId) {
       toast.error("Storefront is not linked to a business yet");
       return;
     }
     setSubmitting(true);
     try {
       await register({
-        businessId: BUSINESS_ID,
+        businessId,
         firstName,
         lastName,
         email,
@@ -151,6 +152,25 @@ export default function Register() {
             {submitting ? "Creating..." : "Create account"}
           </Button>
         </form>
+
+        <div className="flex items-center gap-3">
+          <span className="h-px flex-1 bg-border" />
+          <span className="text-xs text-muted-foreground">or</span>
+          <span className="h-px flex-1 bg-border" />
+        </div>
+
+        <GoogleAuthButton
+          text="signup_with"
+          onSuccess={() => {
+            try {
+              window.localStorage.removeItem("omega_referred_by");
+            } catch {
+              // ignore
+            }
+            toast.success("Account created!");
+            navigate("/");
+          }}
+        />
 
         <p className="text-center text-sm">
           Already have an account?{" "}

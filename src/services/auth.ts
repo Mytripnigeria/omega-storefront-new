@@ -29,6 +29,12 @@ export interface LoginPayload {
   password: string;
 }
 
+export interface GoogleAuthPayload {
+  businessId: string;
+  idToken: string;
+  referredByCode?: string;
+}
+
 export interface PhoneOtpRequestPayload {
   businessId: string;
   phone: string;
@@ -54,6 +60,12 @@ export const authApi = {
   },
   login(payload: LoginPayload) {
     return apiRequest<AuthResult>("/auth/storefront/login", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  google(payload: GoogleAuthPayload) {
+    return apiRequest<AuthResult>("/auth/storefront/google", {
       method: "POST",
       body: JSON.stringify(payload),
     });

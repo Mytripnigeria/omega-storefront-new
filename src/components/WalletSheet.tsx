@@ -7,6 +7,8 @@ import {
   Gift,
   TrendingUp,
   ArrowLeft,
+  Plus,
+  Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -21,13 +23,17 @@ import {
   type CustomerProfile,
 } from "@/services/auth";
 import { referralsApi, type MyReferralsSummary } from "@/services/referrals";
+import {
+  storefrontApi,
+  type PublicPaymentMethod,
+} from "@/services/storefront";
 
 interface WalletSheetProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-type View = "main" | "history" | "redeem";
+type View = "main" | "history" | "redeem" | "deposit";
 
 const tierNextPoints: Record<CustomerProfile["loyaltyTier"], number> = {
   bronze: 500,
@@ -55,6 +61,29 @@ export const WalletSheet = ({ isOpen, onClose }: WalletSheetProps) => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [referralSummary, setReferralSummary] =
     useState<MyReferralsSummary | null>(null);
+  const [depositBank, setDepositBank] = useState<
+    PublicPaymentMethod["bank"] | null
+  >(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    storefrontApi
+      .getPaymentMethods()
+      .then((methods) => {
+        if (cancelled) return;
+        const transfer = methods.find(
+          (m) => m.type === "transfer" && m.bank?.accountNumber,
+        );
+        setDepositBank(transfer?.bank ?? null);
+      })
+      .catch(() => {
+        // No transfer method configured — deposit view shows a fallback message.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen || !isAuthenticated) return;
@@ -150,16 +179,27 @@ export const WalletSheet = ({ isOpen, onClose }: WalletSheetProps) => {
   const renderMainView = () => (
     <>
       <div className="bg-primary rounded-2xl p-5 text-primary-foreground mb-4">
-        <div className="flex items-center gap-2 mb-3 opacity-80">
-          <Wallet className="w-4 h-4" />
-          <span className="text-sm font-medium">Wallet Balance</span>
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-3 opacity-80">
+              <Wallet className="w-4 h-4" />
+              <span className="text-sm font-medium">Wallet Balance</span>
+            </div>
+            <p className="text-3xl font-bold mb-1">
+              ₦{Number(wallet).toLocaleString()}
+            </p>
+            <p className="text-xs opacity-70">
+              Use at checkout to pay for your order.
+            </p>
+          </div>
+          <button
+            onClick={() => setView("deposit")}
+            aria-label="Add money to wallet"
+            className="w-10 h-10 rounded-full bg-primary-foreground/20 flex items-center justify-center hover:bg-primary-foreground/30 transition-colors flex-shrink-0"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
         </div>
-        <p className="text-3xl font-bold mb-1">
-          ₦{Number(wallet).toLocaleString()}
-        </p>
-        <p className="text-xs opacity-70">
-          Use at checkout to pay for your order.
-        </p>
         {referralSummary &&
           referralSummary.rewardType === "wallet_credit" &&
           referralSummary.totalRewardPending > 0 && (
@@ -180,8 +220,11 @@ export const WalletSheet = ({ isOpen, onClose }: WalletSheetProps) => {
           </div>
           <span className="text-xs opacity-60">Loyalty Points</span>
         </div>
-        <p className="text-3xl font-bold mb-3">
+        <p className="text-3xl font-bold mb-1">
           {Number(points).toLocaleString()}
+        </p>
+        <p className="text-xs opacity-70 mb-3">
+          Worth ₦{Math.floor(points * nairaPerPoint).toLocaleString()}
         </p>
         {nextTier && (
           <div>
@@ -372,6 +415,70 @@ export const WalletSheet = ({ isOpen, onClose }: WalletSheetProps) => {
     </>
   );
 
+  const renderDepositView = () => {
+    const copy = (value?: string) => {
+      if (!value) return;
+      void navigator.clipboard
+        ?.writeText(value)
+        .then(() => toast.success("Copied"))
+        .catch(() => undefined);
+    };
+    const rows: Array<{ label: string; value?: string }> = [
+      { label: "Bank", value: depositBank?.bankName },
+      { label: "Account number", value: depositBank?.accountNumber },
+      { label: "Account name", value: depositBank?.accountName },
+    ];
+    return (
+      <>
+        <button
+          onClick={() => setView("main")}
+          className="flex items-center gap-1 text-sm text-muted-foreground mb-4"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back
+        </button>
+
+        <h3 className="text-lg font-bold mb-2">Add money to wallet</h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          Transfer to the account below. Your wallet is credited once the
+          transfer is confirmed.
+        </p>
+
+        {depositBank?.accountNumber ? (
+          <div className="bg-secondary rounded-xl p-4 space-y-3">
+            {rows.map((r) =>
+              r.value ? (
+                <div
+                  key={r.label}
+                  className="flex items-center justify-between gap-3"
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">{r.label}</p>
+                    <p className="font-medium text-sm truncate">{r.value}</p>
+                  </div>
+                  {r.label === "Account number" && (
+                    <button
+                      onClick={() => copy(r.value)}
+                      className="flex items-center gap-1 text-xs text-primary flex-shrink-0"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      Copy
+                    </button>
+                  )}
+                </div>
+              ) : null,
+            )}
+          </div>
+        ) : (
+          <div className="bg-secondary rounded-xl p-4 text-sm text-muted-foreground text-center">
+            Bank deposit details aren't available yet. Please contact the store
+            to top up your wallet.
+          </div>
+        )}
+      </>
+    );
+  };
+
   return (
     <>
       <div
@@ -408,6 +515,7 @@ export const WalletSheet = ({ isOpen, onClose }: WalletSheetProps) => {
           {view === "main" && renderMainView()}
           {view === "history" && renderHistoryView()}
           {view === "redeem" && renderRedeemView()}
+          {view === "deposit" && renderDepositView()}
         </div>
       </div>
     </>

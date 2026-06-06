@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ordersApi, type StorefrontOrder } from "@/services/orders";
 import { reviewsApi } from "@/services/reviews";
+import { getPreference } from "@/hooks/usePreferences";
 
 const STEPS = [
   {
@@ -99,22 +100,33 @@ const OrderTracking = () => {
       }
     };
 
+    // Honour the "Live order tracking" setting: when off, we fetch once (and on
+    // focus) but skip the background polling that keeps the status fresh.
+    const livePolling = getPreference("order_tracking");
+
     void tick();
-    interval = window.setInterval(() => {
-      if (lastStatus === "completed" || lastStatus === "cancelled") {
-        if (interval != null) window.clearInterval(interval);
-        interval = null;
-        return;
-      }
-      void tick();
-    }, 8000);
+    if (livePolling) {
+      interval = window.setInterval(() => {
+        if (lastStatus === "completed" || lastStatus === "cancelled") {
+          if (interval != null) window.clearInterval(interval);
+          interval = null;
+          return;
+        }
+        void tick();
+      }, 8000);
+    }
 
     // Refetch when the tab regains focus — customer often tabs away after
     // placing an order.
     const onFocus = () => {
       if (cancelled) return;
       consecutiveErrors = 0;
-      if (interval == null && lastStatus !== "completed" && lastStatus !== "cancelled") {
+      if (
+        livePolling &&
+        interval == null &&
+        lastStatus !== "completed" &&
+        lastStatus !== "cancelled"
+      ) {
         interval = window.setInterval(() => void tick(), 8000);
       }
       void tick();

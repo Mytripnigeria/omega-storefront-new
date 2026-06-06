@@ -11,6 +11,7 @@ import {
   authApi,
   profileApi,
   type CustomerProfile,
+  type GoogleAuthPayload,
   type LoginPayload,
   type PhoneOtpRequestPayload,
   type PhoneOtpVerifyPayload,
@@ -26,6 +27,7 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   login: (payload: LoginPayload) => Promise<void>;
   register: (payload: RegisterPayload) => Promise<void>;
+  loginWithGoogle: (payload: GoogleAuthPayload) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   requestPhoneOtp: (payload: PhoneOtpRequestPayload) => Promise<void>;
@@ -120,6 +122,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [persistAuth],
   );
 
+  const loginWithGoogle = useCallback(
+    async (payload: GoogleAuthPayload) => {
+      const result = await authApi.google(payload);
+      await persistAuth(result);
+    },
+    [persistAuth],
+  );
+
   const requestPhoneOtp = useCallback(async (payload: PhoneOtpRequestPayload) => {
     await authApi.requestPhoneOtp(payload);
   }, []);
@@ -151,6 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: !!user,
       login,
       register,
+      loginWithGoogle,
       logout,
       refreshProfile,
       requestPhoneOtp,
@@ -162,6 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading,
       login,
       register,
+      loginWithGoogle,
       logout,
       refreshProfile,
       requestPhoneOtp,

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { useStorefront } from "@/context/StorefrontContext";
 import { Button } from "@/components/ui/button";
 import {
   PageTransition,
@@ -26,6 +27,8 @@ const Profile = () => {
   const navigate = useNavigate();
   const { profile, isLoading, isAuthenticated, logout, refreshProfile } =
     useAuth();
+  const { config } = useStorefront();
+  const nairaPerPoint = Number(config?.nairaPerPoint ?? 0.1);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
 
   if (isLoading) {
@@ -159,6 +162,9 @@ const Profile = () => {
                   <div className="p-4 lg:p-6 bg-card rounded-2xl border border-border text-center">
                     <p className="text-2xl lg:text-3xl font-bold text-primary">
                       {profile.points.toLocaleString()}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      ≈ ₦{Math.floor(profile.points * nairaPerPoint).toLocaleString()}
                     </p>
                     <p className="text-sm text-muted-foreground">Points</p>
                   </div>

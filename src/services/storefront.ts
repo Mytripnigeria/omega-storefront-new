@@ -1,7 +1,8 @@
 // Public storefront API service. No auth required.
+import { getBusinessId } from "@/lib/business";
+
 const API_URL = (import.meta.env.VITE_API_URL ??
   "http://localhost:9091/api") as string;
-const BUSINESS_ID = (import.meta.env.VITE_BUSINESS_ID ?? "") as string;
 
 export type StoreStatus = "live" | "offline" | "maintenance";
 export type MenuLayout = "grouped" | "grid" | "list";
@@ -98,7 +99,7 @@ export interface StorefrontPage {
 
 async function publicGet<T>(path: string): Promise<T> {
   const sep = path.includes("?") ? "&" : "?";
-  const url = `${API_URL}${path}${sep}businessId=${encodeURIComponent(BUSINESS_ID)}`;
+  const url = `${API_URL}${path}${sep}businessId=${encodeURIComponent(getBusinessId())}`;
   const res = await fetch(url);
   if (!res.ok) {
     const body = await res.json().catch(() => ({ message: "Request failed" }));
@@ -124,6 +125,21 @@ export const storefrontApi = {
       `/public/storefront/pages/${encodeURIComponent(slug)}`,
     );
   },
+  getPaymentMethods() {
+    return publicGet<PublicPaymentMethod[]>(
+      "/public/storefront/payment-methods",
+    );
+  },
 };
 
-export { BUSINESS_ID };
+export interface PublicPaymentMethod {
+  id: string;
+  type: "cash" | "card" | "transfer" | "pos" | "mobile_money" | "other";
+  label: string;
+  order: number;
+  bank?: {
+    bankName?: string;
+    accountNumber?: string;
+    accountName?: string;
+  };
+}

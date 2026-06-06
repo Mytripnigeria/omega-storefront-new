@@ -1,7 +1,8 @@
 // Public store-availability lookup. Mirrors GET /public/storefront/stores/:id/availability.
+import { getBusinessId } from "@/lib/business";
+
 const API_URL = (import.meta.env.VITE_API_URL ??
   "http://localhost:9091/api") as string;
-const BUSINESS_ID = (import.meta.env.VITE_BUSINESS_ID ?? "") as string;
 
 export interface AvailabilitySlot {
   startsAt: string;
@@ -19,7 +20,7 @@ export const availabilityApi = {
     const url = `${API_URL}/public/storefront/stores/${encodeURIComponent(
       storeId,
     )}/availability?businessId=${encodeURIComponent(
-      BUSINESS_ID,
+      getBusinessId(),
     )}&date=${encodeURIComponent(date)}`;
     const res = await fetch(url);
     if (!res.ok) {

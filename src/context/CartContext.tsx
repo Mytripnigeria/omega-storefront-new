@@ -8,6 +8,7 @@ import React, {
 import { CartItem, MenuItem } from "@/types/menu";
 import { useAuth } from "@/context/AuthContext";
 import { useStorefront } from "@/context/StorefrontContext";
+import { computeLineUnitPrice } from "@/lib/pricing";
 
 const STORAGE_KEY = "omega_cart_v2";
 
@@ -165,7 +166,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   const subtotal = items.reduce(
-    (sum, item) => sum + item.menuItem.price * item.quantity,
+    (sum, item) =>
+      sum +
+      computeLineUnitPrice(item.menuItem, item.selectedOptions) * item.quantity,
     0,
   );
   const taxRate = Number(config?.taxRate ?? 0.075);

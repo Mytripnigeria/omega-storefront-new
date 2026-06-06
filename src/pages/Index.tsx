@@ -25,6 +25,8 @@ import { MenuItem } from '@/types/menu';
 import { toast } from 'sonner';
 import logo from '@/assets/logo.png';
 import { useStorefront } from '@/context/StorefrontContext';
+import { getStoreStatus } from '@/lib/format';
+import { playSound } from '@/lib/sound';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -35,9 +37,25 @@ const Index = () => {
     comboItems,
     categories,
     stores,
+    store,
     error: menuError,
     isLoading: menuLoading,
   } = useMenu();
+
+  // Derive the live open/closed status. An admin "offline"/"maintenance" override
+  // wins; otherwise compute from the store's weekly opening hours.
+  const storeStatus = useMemo(() => {
+    if (config?.storeStatus === 'maintenance')
+      return { isOpen: false, label: 'Under maintenance' };
+    if (config?.storeStatus === 'offline')
+      return { isOpen: false, label: 'Closed' };
+    return (
+      getStoreStatus(store?.openingHours ?? null) ?? {
+        isOpen: config?.storeStatus === 'live',
+        label: config?.storeStatus === 'live' ? 'Open' : 'Store info',
+      }
+    );
+  }, [config?.storeStatus, store?.openingHours]);
   const skeletonLoading = useSkeletonLoader(1500);
   const isLoading = skeletonLoading || menuLoading;
 
@@ -129,7 +147,19 @@ const Index = () => {
   };
 
   const handleQuickAdd = (item: MenuItem) => {
+    // Per spec: the quick-add (+) opens the product page when the item has
+    // variations (or any required option) so the customer must choose first;
+    // otherwise it adds straight to the cart.
+    const needsSelection = item.options?.some(
+      (o) => o.isVariation || o.required,
+    );
+    if (needsSelection) {
+      setSelectedItem(item);
+      setIsItemSheetOpen(true);
+      return;
+    }
     addItem(item);
+    playSound('success');
     toast.success(`${item.name} added to cart`, {
       duration: 1500,
     });
@@ -154,21 +184,13 @@ const Index = () => {
             <button
               onClick={() => setIsStoreInfoOpen(true)}
               className={`flex items-center gap-1 text-sm transition-colors ${
-                config?.storeStatus === 'live'
+                storeStatus.isOpen
                   ? 'text-success hover:text-success/80'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               <Clock className="w-3.5 h-3.5" />
-              <span>
-                {config?.storeStatus === 'live'
-                  ? 'Open'
-                  : config?.storeStatus === 'maintenance'
-                  ? 'Under maintenance'
-                  : config?.storeStatus === 'offline'
-                  ? 'Closed'
-                  : 'Store info'}
-              </span>
+              <span>{storeStatus.label}</span>
             </button>
           </div>
 

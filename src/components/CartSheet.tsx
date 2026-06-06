@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { X, Minus, Plus, ChevronRight, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '@/context/CartContext';
@@ -6,9 +6,11 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useMenu } from '@/context/MenuContext';
 import { MenuItem } from '@/types/menu';
+import { menuApi } from '@/services/menu';
 import { toast } from 'sonner';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { useHaptics } from '@/hooks/useHaptics';
+import { computeLineUnitPrice } from '@/lib/pricing';
 
 interface CartSheetProps {
   isOpen: boolean;
@@ -32,16 +34,51 @@ export const CartSheet = ({ isOpen, onClose, onCheckout }: CartSheetProps) => {
     updateQuantity,
     addItem,
     subtotal,
-    pointsToEarn
+    pointsToEarn,
+    storeId,
   } = useCart();
   const { menuItems } = useMenu();
+  const [suggestedItems, setSuggestedItems] = useState<MenuItem[]>([]);
 
-  // Get suggested items (random items not in cart)
-  const cartItemIds = items.map(item => item.menuItem.id);
-  const suggestedItems = menuItems
-    .filter(item => !cartItemIds.includes(item.id))
-    .sort(() => Math.random() - 0.5)
-    .slice(0, 3);
+  // "You might also like" — backed by the recommendations endpoint (products
+  // most ordered alongside what's in the cart). Falls back to a random pick.
+  useEffect(() => {
+    if (!isOpen || items.length === 0) {
+      setSuggestedItems([]);
+      return;
+    }
+    const cartIds = new Set(items.map((i) => i.menuItem.id));
+    const pickFromMenu = (ids: string[]) =>
+      ids
+        .map((id) => menuItems.find((m) => m.id === id))
+        .filter((m): m is MenuItem => !!m && !cartIds.has(m.id))
+        .slice(0, 3);
+    const randomFallback = () =>
+      menuItems
+        .filter((m) => !cartIds.has(m.id))
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 3);
+
+    let cancelled = false;
+    if (!storeId) {
+      setSuggestedItems(randomFallback());
+      return;
+    }
+    void menuApi
+      .recommendations(storeId, { productId: items[0]?.menuItem.id, limit: 6 })
+      .then((prods) => {
+        if (cancelled) return;
+        const recommended = pickFromMenu(prods.map((p) => p.id));
+        setSuggestedItems(recommended.length ? recommended : randomFallback());
+      })
+      .catch(() => {
+        if (!cancelled) setSuggestedItems(randomFallback());
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, storeId, items.length, menuItems]);
 
   const handleQuickAdd = (item: MenuItem) => {
     addItem(item);
@@ -123,7 +160,7 @@ export const CartSheet = ({ isOpen, onClose, onCheckout }: CartSheetProps) => {
                                   {choice.name}
                                 </span>
                                 {choice.price && choice.price > 0 && (
-                                  <span>+₦{choice.price.toLocaleString()}</span>
+                                  <span>{option?.isVariation ? "" : "+"}₦{choice.price.toLocaleString()}</span>
                                 )}
                               </div>
                             );
@@ -134,7 +171,7 @@ export const CartSheet = ({ isOpen, onClose, onCheckout }: CartSheetProps) => {
                     {item.specialRequest && (
                       <p className="text-xs text-muted-foreground italic mt-1 truncate">"{item.specialRequest}"</p>
                     )}
-                    <p className="text-sm font-bold mt-1">₦{(item.menuItem.price * item.quantity).toLocaleString()}</p>
+                    <p className="text-sm font-bold mt-1">₦{(computeLineUnitPrice(item.menuItem, item.selectedOptions) * item.quantity).toLocaleString()}</p>
                   </div>
                   <div className="flex items-center bg-secondary rounded-full h-8">
                     <button
@@ -271,7 +308,7 @@ export const CartSheet = ({ isOpen, onClose, onCheckout }: CartSheetProps) => {
                                         {choice.name}
                                       </span>
                                       {choice.price && choice.price > 0 && (
-                                        <span>+₦{choice.price.toLocaleString()}</span>
+                                        <span>{option?.isVariation ? "" : "+"}₦{choice.price.toLocaleString()}</span>
                                       )}
                                     </div>
                                   );
@@ -282,7 +319,7 @@ export const CartSheet = ({ isOpen, onClose, onCheckout }: CartSheetProps) => {
                           {item.specialRequest && (
                             <p className="text-xs text-muted-foreground italic mt-1 truncate">"{item.specialRequest}"</p>
                           )}
-                          <p className="text-sm font-bold mt-1">₦{(item.menuItem.price * item.quantity).toLocaleString()}</p>
+                          <p className="text-sm font-bold mt-1">₦{(computeLineUnitPrice(item.menuItem, item.selectedOptions) * item.quantity).toLocaleString()}</p>
                         </div>
                         <div className="flex items-center bg-secondary rounded-full h-8">
                           <button

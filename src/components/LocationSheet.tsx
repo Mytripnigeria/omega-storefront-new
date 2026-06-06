@@ -9,6 +9,9 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { useHaptics } from '@/hooks/useHaptics';
+import { getStoreStatus } from '@/lib/format';
+import { hasMapsKey } from '@/lib/maps';
+import { MapAddressPicker, type PickedAddress } from '@/components/MapAddressPicker';
 import {
   addressesApi,
   type CustomerAddress,
@@ -43,6 +46,7 @@ export const LocationSheet = ({ isOpen, onClose }: LocationSheetProps) => {
   const [addresses, setAddresses] = useState<CustomerAddress[]>([]);
   const [addressLine, setAddressLine] = useState("");
   const [search, setSearch] = useState("");
+  const [showMap, setShowMap] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !isAuthenticated || orderType !== "delivery") return;
@@ -98,8 +102,36 @@ export const LocationSheet = ({ isOpen, onClose }: LocationSheetProps) => {
     }
   };
 
+  const handleMapConfirm = async (addr: PickedAddress) => {
+    if (!isAuthenticated) {
+      toast.error("Please sign in to save your delivery address");
+      return;
+    }
+    try {
+      const created = await addressesApi.create({
+        label: "Delivery",
+        line1: addr.line1,
+        city: addr.city,
+        state: addr.state,
+        country: addr.country,
+        latitude: addr.latitude,
+        longitude: addr.longitude,
+        isDefault: addresses.length === 0,
+      });
+      setAddresses((prev) => [created, ...prev]);
+      setSelectedAddressId(created.id);
+      setShowMap(false);
+      triggerHaptic('success');
+      toast.success("Address saved");
+      onClose();
+    } catch (e) {
+      toast.error((e as Error).message ?? "Couldn't save address");
+    }
+  };
+
   const handleClose = () => {
     triggerHaptic('light');
+    setShowMap(false);
     onClose();
   };
 
@@ -179,6 +211,8 @@ export const LocationSheet = ({ isOpen, onClose }: LocationSheetProps) => {
             ) : (
               filteredStores.map((store) => {
                 const isSelected = storeId === store.id;
+                const status = getStoreStatus(store.openingHours ?? null);
+                const isOpen = status ? status.isOpen : store.isActive;
                 return (
                   <div
                     key={store.id}
@@ -196,11 +230,11 @@ export const LocationSheet = ({ isOpen, onClose }: LocationSheetProps) => {
                         <span
                           className={cn(
                             "flex items-center gap-1 text-sm",
-                            store.isActive ? "text-success" : "text-destructive",
+                            isOpen ? "text-success" : "text-destructive",
                           )}
                         >
                           <Clock className="w-3 h-3" />
-                          {store.isActive ? "Open now" : "Closed"}
+                          {status ? status.label : isOpen ? "Open now" : "Closed"}
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">
@@ -226,6 +260,13 @@ export const LocationSheet = ({ isOpen, onClose }: LocationSheetProps) => {
             </div>
             <p className="text-muted-foreground">Sign in to add a delivery address</p>
           </div>
+        ) : showMap ? (
+          <div className="pb-2">
+            <MapAddressPicker
+              onConfirm={handleMapConfirm}
+              onCancel={() => setShowMap(false)}
+            />
+          </div>
         ) : (
           <div className="space-y-3">
             {addressLine.trim() && (
@@ -236,6 +277,16 @@ export const LocationSheet = ({ isOpen, onClose }: LocationSheetProps) => {
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Save "{addressLine.trim()}"
+              </Button>
+            )}
+            {hasMapsKey() && (
+              <Button
+                onClick={() => setShowMap(true)}
+                variant="outline"
+                className="w-full"
+              >
+                <MapPin className="h-4 w-4 mr-2" />
+                Pick on map
               </Button>
             )}
             {addresses.length === 0 ? (

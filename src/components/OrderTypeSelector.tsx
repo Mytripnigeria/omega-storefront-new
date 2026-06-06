@@ -2,6 +2,7 @@ import { MapPin, Clock, ChevronDown } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useMenu } from "@/context/MenuContext";
 import { cn } from "@/lib/utils";
+import { formatScheduleTime } from "@/lib/format";
 
 interface OrderTypeSelectorProps {
   onLocationClick: () => void;
@@ -73,7 +74,9 @@ export const OrderTypeSelector = ({
           className="flex items-center gap-2 px-3 py-2.5 bg-secondary rounded-full hover:bg-secondary/80 transition-colors"
         >
           <Clock className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm font-medium">{selectedTime || "ASAP"}</span>
+          <span className="text-sm font-medium">
+            {formatScheduleTime(selectedTime)}
+          </span>
           <ChevronDown className="w-4 h-4 text-muted-foreground" />
         </button>
       </div>

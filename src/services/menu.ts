@@ -1,7 +1,8 @@
 // Public menu API — no auth required.
+import { getBusinessId } from "@/lib/business";
+
 const API_URL = (import.meta.env.VITE_API_URL ??
   "http://localhost:9091/api") as string;
-const BUSINESS_ID = (import.meta.env.VITE_BUSINESS_ID ?? "") as string;
 
 export interface PublicCategory {
   id: string;
@@ -105,7 +106,7 @@ export interface PublicStore {
 
 async function publicGet<T>(path: string): Promise<T> {
   const sep = path.includes("?") ? "&" : "?";
-  const url = `${API_URL}${path}${sep}businessId=${encodeURIComponent(BUSINESS_ID)}`;
+  const url = `${API_URL}${path}${sep}businessId=${encodeURIComponent(getBusinessId())}`;
   const res = await fetch(url);
   if (!res.ok) {
     const body = await res.json().catch(() => ({ message: "Request failed" }));
@@ -141,6 +142,12 @@ export const menuApi = {
       `/public/storefront/menu/combos?storeId=${encodeURIComponent(storeId)}`,
     );
   },
+  recommendations(storeId: string, opts?: { productId?: string; limit?: number }) {
+    const q = new URLSearchParams({ storeId });
+    if (opts?.productId) q.set("productId", opts.productId);
+    if (opts?.limit) q.set("limit", String(opts.limit));
+    return publicGet<PublicProduct[]>(
+      `/public/storefront/recommendations?${q.toString()}`,
+    );
+  },
 };
-
-export { BUSINESS_ID };

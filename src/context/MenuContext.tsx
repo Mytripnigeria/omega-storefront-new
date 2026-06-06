@@ -48,6 +48,7 @@ function productToMenuItem(p: PublicProduct, categoryId: string): MenuItem {
       name: "Choose option",
       required: true,
       maxSelections: 1,
+      isVariation: true,
       choices: p.variations.map<OptionChoice>((v) => ({
         id: v.id,
         name: v.name,
