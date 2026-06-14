@@ -10,6 +10,7 @@ export interface PublicCategory {
   storeId: string | null;
   type: string;
   name: string;
+  emoji: string | null;
   description: string | null;
   imageUrl: string | null;
   isActive: boolean;
@@ -23,7 +24,9 @@ export interface PublicCategory {
 export interface PublicVariation {
   id: string;
   name: string;
-  priceDelta: number;
+  /** Absolute selling price for this variant (replaces the base product price). */
+  sellingPrice: number;
+  priceDelta?: number;
   isDefault: boolean;
 }
 
@@ -49,7 +52,10 @@ export interface PublicProduct {
   categoryId: string | null;
   name: string;
   description: string | null;
+  /** Cost price (backend `price`). Not the customer-facing price. */
   price: number;
+  /** Customer-facing selling price — use this for display/cart. */
+  sellingPrice: number;
   cost: number;
   imageUrl: string | null;
   preparationTime: number | null;
@@ -63,9 +69,14 @@ export interface PublicProduct {
 export interface PublicComboItem {
   id: string;
   productId: string;
-  productName: string;
   quantity: number;
-  unitPrice: number;
+  /** Embedded product summary (name + selling price) returned by the backend. */
+  product?: {
+    id: string;
+    name: string;
+    sellingPrice: number;
+    imageUrl: string | null;
+  } | null;
 }
 
 export interface PublicCombo {

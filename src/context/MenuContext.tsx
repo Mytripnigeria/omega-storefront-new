@@ -52,7 +52,12 @@ function productToMenuItem(p: PublicProduct, categoryId: string): MenuItem {
       choices: p.variations.map<OptionChoice>((v) => ({
         id: v.id,
         name: v.name,
-        price: Number(v.priceDelta) || undefined,
+        // Variation selling price is absolute and REPLACES the base product
+        // price (see computeLineUnitPrice). Fall back to base + delta for any
+        // legacy payloads that only send a delta.
+        price:
+          Number(v.sellingPrice) ||
+          (v.priceDelta != null ? Number(p.sellingPrice) + Number(v.priceDelta) : undefined),
       })),
     });
   }
@@ -78,7 +83,8 @@ function productToMenuItem(p: PublicProduct, categoryId: string): MenuItem {
     id: p.id,
     name: p.name,
     description: p.description ?? "",
-    price: Number(p.price),
+    // Customer-facing price is the selling price, never the cost price.
+    price: Number(p.sellingPrice ?? p.price),
     image: p.imageUrl ?? "",
     category: categoryId,
     options: options.length > 0 ? options : undefined,
@@ -96,8 +102,8 @@ function comboToMenuItem(c: PublicCombo): MenuItem {
     isCombo: true,
     comboItems: (c.items ?? []).map((i) => ({
       itemId: i.productId,
-      name: i.productName,
-      originalPrice: Number(i.unitPrice),
+      name: i.product?.name ?? "Item",
+      originalPrice: Number(i.product?.sellingPrice ?? 0),
     })),
   };
 }
@@ -178,7 +184,8 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     const dynamic: Category[] = (apiCategories ?? []).map((c) => ({
       id: c.id,
       name: c.name,
-      emoji: "🍽️",
+      // Use the emoji set on the merchant dashboard; fall back when unset.
+      emoji: c.emoji || "🍽️",
     }));
     const allCategories: Category[] = [
       { id: "combos", name: "Combos", emoji: "🎁" },
