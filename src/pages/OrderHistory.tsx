@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ChevronRight, MapPin, RotateCcw } from "lucide-react";
+import { ArrowLeft, ChevronRight, MapPin, RotateCcw, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   FadeInSection,
@@ -13,6 +13,8 @@ import { useHaptics } from "@/hooks/useHaptics";
 import { useCart } from "@/context/CartContext";
 import { useMenu } from "@/context/MenuContext";
 import { ordersApi, type StorefrontOrder } from "@/services/orders";
+import { reviewsApi } from "@/services/reviews";
+import { OrderReviewSheet } from "@/components/OrderReviewSheet";
 import { toast } from "sonner";
 
 const PAGE_SIZE = 20;
@@ -28,6 +30,8 @@ const OrderHistory = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Order currently being reviewed (drives the reusable review sheet).
+  const [reviewOrder, setReviewOrder] = useState<StorefrontOrder | null>(null);
 
   // Initial page.
   useEffect(() => {
@@ -83,9 +87,11 @@ const OrderHistory = () => {
 
   const statusBadge = (status: StorefrontOrder["status"]) => {
     const styles: Record<StorefrontOrder["status"], string> = {
+      initiated: "bg-yellow-500/10 text-yellow-600",
       pending: "bg-yellow-500/10 text-yellow-600",
       preparing: "bg-blue-500/10 text-blue-600",
       ready: "bg-indigo-500/10 text-indigo-600",
+      delivering: "bg-blue-500/10 text-blue-600",
       served: "bg-success/10 text-success",
       completed: "bg-success/10 text-success",
       cancelled: "bg-destructive/10 text-destructive",
@@ -126,6 +132,20 @@ const OrderHistory = () => {
       toast.success(`${added} item${added === 1 ? "" : "s"} added to your cart`);
     }
     navigate("/");
+  };
+
+  const handleReviewSubmit = async (rating: number, review: string) => {
+    if (!reviewOrder) return;
+    try {
+      await reviewsApi.submit(reviewOrder.id, {
+        rating,
+        comment: review || undefined,
+      });
+      toast.success(`Thanks for your ${rating}-star review!`);
+      setReviewOrder(null);
+    } catch (e) {
+      toast.error((e as Error).message ?? "Couldn't submit review");
+    }
   };
 
   if (isLoading) {
@@ -195,6 +215,17 @@ const OrderHistory = () => {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
+                              setReviewOrder(o);
+                            }}
+                            className="flex items-center gap-1 text-xs text-primary hover:underline"
+                          >
+                            <Star className="w-3 h-3" /> Review
+                          </button>
+                        )}
+                        {(o.status === "completed" || o.status === "served") && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
                               handleReorder(o);
                             }}
                             className="flex items-center gap-1 text-xs text-primary hover:underline"
@@ -224,6 +255,13 @@ const OrderHistory = () => {
           )}
         </div>
       </div>
+
+      <OrderReviewSheet
+        isOpen={!!reviewOrder}
+        onClose={() => setReviewOrder(null)}
+        onSubmit={handleReviewSubmit}
+        orderId={reviewOrder?.id}
+      />
     </PageTransition>
   );
 };
