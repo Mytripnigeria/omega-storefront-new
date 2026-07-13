@@ -169,7 +169,16 @@ const OrderTracking = () => {
   const currentStepIndex = useMemo(() => {
     if (!order) return 0;
     if (order.status === "cancelled") return -1;
-    const idx = STEPS.findIndex((s) => s.id === order.status);
+    // The 5-step ladder folds the "delivering" hand-off into the "served"
+    // (On the way / Picked up) step, and "initiated" into "pending", so the
+    // backend's full lifecycle maps onto the existing UI without a new step.
+    const normalized =
+      order.status === "delivering"
+        ? "served"
+        : order.status === "initiated"
+          ? "pending"
+          : order.status;
+    const idx = STEPS.findIndex((s) => s.id === normalized);
     return idx === -1 ? 0 : idx;
   }, [order]);
 
@@ -226,9 +235,11 @@ const OrderTracking = () => {
                     <CheckCircle2 className="w-10 h-10 text-primary" />
                   ) : (
                     <span className="text-4xl">
+                      {order.status === "initiated" && "✅"}
                       {order.status === "pending" && "✅"}
                       {order.status === "preparing" && "👨‍🍳"}
                       {order.status === "ready" && "📦"}
+                      {order.status === "delivering" && "🛵"}
                       {order.status === "served" &&
                         (order.isDelivery ? "🛵" : "🤝")}
                     </span>

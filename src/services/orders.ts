@@ -1,9 +1,11 @@
 import { apiRequest } from "@/lib/api-client";
 
 export type OrderStatus =
+  | "initiated"
   | "pending"
   | "preparing"
   | "ready"
+  | "delivering"
   | "served"
   | "completed"
   | "cancelled";
@@ -67,6 +69,7 @@ export interface PlaceOrderItem {
   name: string;
   quantity: number;
   unitPrice: number;
+  variationId?: string;
   variation?: Record<string, unknown>;
   addons?: Record<string, unknown>[];
   notes?: string;

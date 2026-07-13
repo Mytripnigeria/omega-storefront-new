@@ -38,7 +38,7 @@ import {
   type PublicPaymentMethod,
 } from "@/services/storefront";
 import { formatScheduleTime } from "@/lib/format";
-import { computeLineUnitPrice } from "@/lib/pricing";
+import { buildVariationAddons, computeLineUnitPrice } from "@/lib/pricing";
 
 type PaymentMethod = "paystack" | "wallet" | "points" | "cash";
 
@@ -331,15 +331,26 @@ const Checkout = () => {
             : undefined,
         scheduledFor:
           selectedTime && selectedTime !== "ASAP" ? selectedTime : undefined,
-        items: items.map((i) => ({
-          productId: i.menuItem.isCombo ? undefined : i.menuItem.id,
-          comboId: i.menuItem.isCombo ? i.menuItem.id : undefined,
-          name: i.menuItem.name,
-          quantity: i.quantity,
-          unitPrice: i.menuItem.price,
-          variation: i.selectedOptions ?? undefined,
-          notes: i.specialRequest ?? undefined,
-        })),
+        items: items.map((i) => {
+          const { variation, addons, variationId } = buildVariationAddons(
+            i.menuItem,
+            i.selectedOptions,
+          );
+          return {
+            productId: i.menuItem.isCombo ? undefined : i.menuItem.id,
+            comboId: i.menuItem.isCombo ? i.menuItem.id : undefined,
+            name: i.menuItem.name,
+            quantity: i.quantity,
+            // Inclusive of the chosen variation (replaces base) + add-ons, so
+            // the persisted order total matches the cart the customer saw.
+            unitPrice: computeLineUnitPrice(i.menuItem, i.selectedOptions),
+            // The server re-derives prices from these ids (anti-tampering).
+            variationId: i.menuItem.isCombo ? undefined : variationId,
+            variation,
+            addons,
+            notes: i.specialRequest ?? undefined,
+          };
+        }),
         paymentChannel: paymentMethod,
         savedPaymentMethodId:
           paymentMethod === "paystack" && selectedPaymentMethodId
