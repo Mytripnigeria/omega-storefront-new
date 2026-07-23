@@ -128,6 +128,33 @@ export const profileApi = {
   myWallet() {
     return apiRequest<WalletTx[]>("/storefront/me/wallet-transactions");
   },
+  /**
+   * Starts a Paystack-backed wallet top-up. Returns the access code for the
+   * inline popup — nothing is credited until verifyDeposit confirms the charge.
+   */
+  startDeposit(amount: number) {
+    return apiRequest<{
+      reference: string;
+      amount: number;
+      authorizationUrl: string;
+      accessCode: string;
+      publicKey: string;
+    }>("/storefront/me/wallet/deposit", {
+      method: "POST",
+      body: JSON.stringify({ amount }),
+    });
+  },
+  /** Confirms a top-up and credits the wallet. Idempotent per reference. */
+  verifyDeposit(reference: string) {
+    return apiRequest<{
+      credited: boolean;
+      amount: number;
+      walletBalance: number;
+    }>("/storefront/me/wallet/deposit/verify", {
+      method: "POST",
+      body: JSON.stringify({ reference }),
+    });
+  },
   myPoints() {
     return apiRequest<PointsTx[]>("/storefront/me/points-transactions");
   },

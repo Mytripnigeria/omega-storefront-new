@@ -69,6 +69,7 @@ function productToMenuItem(p: PublicProduct, categoryId: string): MenuItem {
       name: group.name,
       required: group.required,
       maxSelections: group.maxSelections ?? undefined,
+      minSelections: group.minSelections ?? undefined,
       choices: group.addons
         .filter((a) => a.isAvailable !== false)
         .map<OptionChoice>((a) => ({

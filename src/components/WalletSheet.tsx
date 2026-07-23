@@ -23,6 +23,8 @@ import {
   type CustomerProfile,
 } from "@/services/auth";
 import { referralsApi, type MyReferralsSummary } from "@/services/referrals";
+import { Input } from "@/components/ui/input";
+import { openPaystack } from "@/lib/paystack";
 import {
   storefrontApi,
   type PublicPaymentMethod,
@@ -51,7 +53,9 @@ const formatDate = (s: string) =>
 
 export const WalletSheet = ({ isOpen, onClose }: WalletSheetProps) => {
   useBodyScrollLock(isOpen);
-  const { profile, isAuthenticated } = useAuth();
+  const { profile, isAuthenticated, refreshProfile } = useAuth();
+  const [depositAmount, setDepositAmount] = useState("");
+  const [depositing, setDepositing] = useState(false);
   const { config } = useStorefront();
   const nairaPerPoint = Number(config?.nairaPerPoint ?? 0.1);
 
@@ -415,6 +419,51 @@ export const WalletSheet = ({ isOpen, onClose }: WalletSheetProps) => {
     </>
   );
 
+  /**
+   * Card top-up. The server initialises the Paystack transaction and we resume
+   * it by access code; the wallet is only credited once verify confirms the
+   * charge (and verify is idempotent, so a retry can't double-credit).
+   */
+  const handleTopUp = async () => {
+    const amount = Math.round(Number(depositAmount));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error("Enter a valid amount");
+      return;
+    }
+    setDepositing(true);
+    try {
+      const init = await profileApi.startDeposit(amount);
+      await openPaystack(init, {
+        onSuccess: async (reference) => {
+          try {
+            const res = await profileApi.verifyDeposit(reference);
+            toast.success(
+              `Wallet topped up with ₦${Number(res.amount).toLocaleString()}`,
+            );
+            setDepositAmount("");
+            await refreshProfile();
+            setView("main");
+          } catch (e) {
+            toast.error(
+              (e as Error).message ??
+                "We couldn't confirm the payment. Contact the store if you were charged.",
+            );
+          } finally {
+            setDepositing(false);
+          }
+        },
+        onCancel: () => {
+          setDepositing(false);
+          toast.info("Top-up cancelled");
+        },
+        onClose: () => setDepositing(false),
+      });
+    } catch (e) {
+      setDepositing(false);
+      toast.error((e as Error).message ?? "Couldn't start the top-up");
+    }
+  };
+
   const renderDepositView = () => {
     const copy = (value?: string) => {
       if (!value) return;
@@ -439,8 +488,28 @@ export const WalletSheet = ({ isOpen, onClose }: WalletSheetProps) => {
         </button>
 
         <h3 className="text-lg font-bold mb-2">Add money to wallet</h3>
+
+        <div className="bg-secondary rounded-xl p-4 space-y-3 mb-4">
+          <p className="text-xs text-muted-foreground">Pay with card</p>
+          <Input
+            type="number"
+            inputMode="numeric"
+            min={1}
+            placeholder="Amount (₦)"
+            value={depositAmount}
+            onChange={(e) => setDepositAmount(e.target.value)}
+          />
+          <Button
+            className="w-full"
+            onClick={handleTopUp}
+            disabled={depositing || !depositAmount}
+          >
+            {depositing ? "Processing…" : "Top up"}
+          </Button>
+        </div>
+
         <p className="text-sm text-muted-foreground mb-4">
-          Transfer to the account below. Your wallet is credited once the
+          Or transfer to the account below. Your wallet is credited once the
           transfer is confirmed.
         </p>
 

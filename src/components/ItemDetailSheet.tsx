@@ -13,14 +13,21 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { computeLineUnitPrice } from '@/lib/pricing';
 import { playSound } from '@/lib/sound';
 import { menuApi } from '@/services/menu';
+import { itemNeedsSelection } from '@/lib/options';
 
 interface ItemDetailSheetProps {
   item: MenuItem | null;
   isOpen: boolean;
   onClose: () => void;
+  /**
+   * Opens the product page for another item. Used by the "Goes well with"
+   * upsell so a product with a required/minimum add-on group can't be carted
+   * without choosing first.
+   */
+  onOpenItem?: (item: MenuItem) => void;
 }
 
-export const ItemDetailSheet = ({ item, isOpen, onClose }: ItemDetailSheetProps) => {
+export const ItemDetailSheet = ({ item, isOpen, onClose, onOpenItem }: ItemDetailSheetProps) => {
   // All hooks must be called unconditionally - before any early returns
   useBodyScrollLock(isOpen && !!item);
   const { triggerHaptic } = useHaptics();
@@ -82,14 +89,44 @@ export const ItemDetailSheet = ({ item, isOpen, onClose }: ItemDetailSheetProps)
     return { originalTotal, savings, savingsPercent };
   }, [item]);
 
+  // Swapping to a different product (e.g. via the upsell) must not carry the
+  // previous product's picks over — its option ids don't apply here.
+  useEffect(() => {
+    setSelectedOptions({});
+    setQuantity(1);
+    setSpecialRequest('');
+  }, [item?.id]);
+
   // Early return after all hooks
   if (!item) return null;
 
   const handleOptionChange = (optionId: string, choiceId: string) => {
-    setSelectedOptions(prev => ({
-      ...prev,
-      [optionId]: [choiceId],
-    }));
+    const option = item.options?.find((o) => o.id === optionId);
+    const max = option?.maxSelections ?? 1;
+    // Single-select groups replace the pick; groups that allow more than one
+    // toggle into the array up to their maximum (a min-selection group larger
+    // than 1 is otherwise impossible to satisfy).
+    if (max <= 1) {
+      setSelectedOptions(prev => ({
+        ...prev,
+        [optionId]: [choiceId],
+      }));
+      return;
+    }
+    setSelectedOptions(prev => {
+      const current = prev[optionId] ?? [];
+      if (current.includes(choiceId)) {
+        return { ...prev, [optionId]: current.filter((c) => c !== choiceId) };
+      }
+      if (current.length >= max) {
+        toast.error(
+          `You can pick at most ${max} for ${(option?.name ?? '').toLowerCase()}`,
+        );
+        triggerHaptic('error');
+        return prev;
+      }
+      return { ...prev, [optionId]: [...current, choiceId] };
+    });
   };
 
   const calculateTotal = () =>
@@ -103,6 +140,19 @@ export const ItemDetailSheet = ({ item, isOpen, onClose }: ItemDetailSheetProps)
       const picks = selectedOptions[opt.id] ?? [];
       if (opt.required && picks.length === 0) {
         toast.error(`Please choose ${opt.name.toLowerCase()}`);
+        triggerHaptic('error');
+        return;
+      }
+      // A group with a Minimum Selection must be satisfied even when it isn't
+      // flagged `required` — this is the rule that forces this sheet open from
+      // the menu's quick-add in the first place.
+      const min = opt.minSelections ?? 0;
+      if (min > 0 && picks.length < min) {
+        toast.error(
+          min === 1
+            ? `Please choose ${opt.name.toLowerCase()}`
+            : `Please choose at least ${min} for ${opt.name.toLowerCase()}`,
+        );
         triggerHaptic('error');
         return;
       }
@@ -125,6 +175,12 @@ export const ItemDetailSheet = ({ item, isOpen, onClose }: ItemDetailSheetProps)
 
   const handleQuickAdd = (upsellItem: MenuItem) => {
     triggerHaptic('light');
+    // The upsell has to honour the same rule as the menu's quick-add: open the
+    // product page when the item needs a choice made first.
+    if (itemNeedsSelection(upsellItem) && onOpenItem) {
+      onOpenItem(upsellItem);
+      return;
+    }
     addItem(upsellItem);
     toast.success(`${upsellItem.name} added`);
   };

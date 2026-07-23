@@ -11,9 +11,11 @@ interface OrderReviewSheetProps {
   onClose: () => void;
   onSubmit: (rating: number, review: string, images?: string[]) => void;
   orderId?: string;
+  /** Human-facing order number; falls back to the raw id when absent. */
+  orderNumber?: number | string;
 }
 
-export const OrderReviewSheet = ({ isOpen, onClose, onSubmit, orderId }: OrderReviewSheetProps) => {
+export const OrderReviewSheet = ({ isOpen, onClose, onSubmit, orderId, orderNumber }: OrderReviewSheetProps) => {
   const [rating, setRating] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(0);
   const [review, setReview] = useState('');
@@ -66,9 +68,6 @@ export const OrderReviewSheet = ({ isOpen, onClose, onSubmit, orderId }: OrderRe
     
     setIsSubmitting(true);
     triggerHaptic('success');
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
     
     onSubmit(rating, review, images.length > 0 ? images : undefined);
     setIsSubmitting(false);
@@ -128,8 +127,8 @@ export const OrderReviewSheet = ({ isOpen, onClose, onSubmit, orderId }: OrderRe
                 </div>
                 <h2 className="text-xl font-bold mb-2">Order Delivered!</h2>
                 <p className="text-muted-foreground">How was your experience?</p>
-                {orderId && (
-                  <p className="text-xs text-muted-foreground mt-1">Order #{orderId}</p>
+                {(orderNumber ?? orderId) && (
+                  <p className="text-xs text-muted-foreground mt-1">Order #{orderNumber ?? orderId}</p>
                 )}
               </div>
 

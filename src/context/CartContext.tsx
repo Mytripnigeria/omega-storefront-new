@@ -9,6 +9,7 @@ import { CartItem, MenuItem } from "@/types/menu";
 import { useAuth } from "@/context/AuthContext";
 import { useStorefront } from "@/context/StorefrontContext";
 import { computeLineUnitPrice } from "@/lib/pricing";
+import { availabilityApi } from "@/services/availability";
 
 const STORAGE_KEY = "omega_cart_v2";
 
@@ -19,6 +20,7 @@ interface PersistedCart {
   selectedAddressId: string | null;
   selectedPaymentMethodId: string | null;
   selectedTime: string;
+  selectedDeliveryRegionId: string | null;
 }
 
 interface CartContextType {
@@ -28,6 +30,7 @@ interface CartContextType {
   selectedAddressId: string | null;
   selectedPaymentMethodId: string | null;
   selectedTime: string;
+  selectedDeliveryRegionId: string | null;
   isLoggedIn: boolean;
   addItem: (
     menuItem: MenuItem,
@@ -43,6 +46,7 @@ interface CartContextType {
   setSelectedAddressId: (id: string | null) => void;
   setSelectedPaymentMethodId: (id: string | null) => void;
   setSelectedTime: (time: string) => void;
+  setSelectedDeliveryRegionId: (id: string | null) => void;
   subtotal: number;
   tax: number;
   total: number;
@@ -85,6 +89,31 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({
   const [selectedTime, setSelectedTime] = useState<string>(
     persisted.selectedTime ?? "ASAP",
   );
+  const [selectedDeliveryRegionId, setSelectedDeliveryRegionId] = useState<
+    string | null
+  >(persisted.selectedDeliveryRegionId ?? null);
+
+  // "ASAP" must never survive into checkout while the store is closed — a
+  // persisted (or defaulted) ASAP is replaced with the first bookable slot as
+  // soon as the store's availability is known.
+  useEffect(() => {
+    if (!storeId || selectedTime !== "ASAP") return;
+    let cancelled = false;
+    const today = new Date();
+    const isoDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    void availabilityApi
+      .forStore(storeId, isoDate)
+      .then((res) => {
+        if (cancelled || res.asapAvailable) return;
+        setSelectedTime(res.slots?.[0]?.startsAt ?? "");
+      })
+      .catch(() => {
+        // Network blip — leave the selection alone; the server still validates.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [storeId, selectedTime]);
 
   // Persist on every change
   useEffect(() => {
@@ -95,6 +124,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({
       selectedAddressId,
       selectedPaymentMethodId,
       selectedTime,
+      selectedDeliveryRegionId,
     };
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
@@ -108,6 +138,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({
     selectedAddressId,
     selectedPaymentMethodId,
     selectedTime,
+    selectedDeliveryRegionId,
   ]);
 
   const addItem = useCallback(
@@ -187,6 +218,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({
         selectedAddressId,
         selectedPaymentMethodId,
         selectedTime,
+        selectedDeliveryRegionId,
         isLoggedIn: isAuthenticated,
         addItem,
         removeItem,
@@ -197,6 +229,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({
         setSelectedAddressId,
         setSelectedPaymentMethodId,
         setSelectedTime,
+        setSelectedDeliveryRegionId,
         subtotal,
         tax,
         total,

@@ -79,6 +79,8 @@ export interface PlaceOrderRequest {
   storeId: string;
   isDelivery: boolean;
   deliveryAddressId?: string;
+  /** Delivery region — the backend prices the delivery from it. */
+  deliveryRegionId?: string;
   deliveryAddress?: Record<string, unknown>;
   scheduledFor?: string;
   items: PlaceOrderItem[];

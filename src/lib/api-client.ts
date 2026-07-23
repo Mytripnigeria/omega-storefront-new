@@ -16,6 +16,21 @@ export const tokenStorage = {
 
 const REFRESH_TIMEOUT_MS = 10_000;
 
+/**
+ * Error thrown for a non-2xx response. Carries the HTTP status so callers can
+ * treat specific outcomes (e.g. 409 "already reviewed") as a normal state
+ * instead of surfacing a raw error toast. Still a plain `Error` for every
+ * existing `(e as Error).message` call site.
+ */
+export class ApiError extends Error {
+  readonly status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 let isRefreshing = false;
 type RefreshWaiter = (token: string | null) => void;
 let refreshQueue: RefreshWaiter[] = [];
@@ -115,11 +130,19 @@ export async function apiRequest<T>(
 
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({ message: "Request failed" }));
-    throw new Error(errorBody.message ?? `HTTP ${response.status}`);
+    throw new ApiError(
+      errorBody.message ?? `HTTP ${response.status}`,
+      response.status,
+    );
   }
 
   if (response.status === 204) return undefined as T;
 
   const json = await response.json();
-  return (json.data ?? json) as T;
+  // Check for the *key*, not truthiness: the API envelope legitimately carries
+  // `data: null` (e.g. "no review for this order yet"), and `json.data ?? json`
+  // would hand back the truthy envelope instead of the null the caller expects.
+  return (json && typeof json === "object" && "data" in json
+    ? json.data
+    : json) as T;
 }

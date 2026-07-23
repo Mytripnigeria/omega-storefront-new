@@ -24,6 +24,11 @@ export interface ItemOption {
   choices: OptionChoice[];
   required?: boolean;
   maxSelections?: number;
+  /**
+   * Minimum number of choices the customer must pick from this group. A group
+   * with `minSelections >= 1` forces the product page open before carting.
+   */
+  minSelections?: number;
   /** True for the product's variation group (its price replaces the base price). */
   isVariation?: boolean;
 }

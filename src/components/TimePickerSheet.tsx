@@ -1,7 +1,7 @@
 import { Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCart } from "@/context/CartContext";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { addDays, format, isSameDay, startOfToday } from "date-fns";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { useStoreAvailability } from "@/hooks/useStoreAvailability";
@@ -33,19 +33,35 @@ export const TimePickerSheet = ({ isOpen, onClose }: TimePickerSheetProps) => {
     isoDate,
   );
 
-  const handleConfirm = () => {
-    if (selectedSlot === ASAP_ID) {
-      setSelectedTime("ASAP");
-    } else {
-      setSelectedTime(selectedSlot);
-    }
-    onClose();
-  };
-
   const slots = data?.slots ?? [];
   const asapAvailable = data?.asapAvailable ?? false;
   const noOptions =
     !isLoading && !error && slots.length === 0 && !asapAvailable;
+
+  // Keep the highlighted choice valid for whatever day is showing. ASAP is only
+  // ever a legal default when the store is open right now — otherwise fall back
+  // to the first bookable slot so a closed store can't be confirmed as "ASAP".
+  useEffect(() => {
+    if (!data) return;
+    const stillValid =
+      selectedSlot === ASAP_ID
+        ? asapAvailable
+        : slots.some((s) => s.startsAt === selectedSlot);
+    if (stillValid) return;
+    setSelectedSlot(asapAvailable ? ASAP_ID : (slots[0]?.startsAt ?? ""));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+
+  const handleConfirm = () => {
+    // Never commit ASAP when the store isn't open now — fall back to the first
+    // bookable slot; with nothing bookable at all, keep the sheet open.
+    let choice = selectedSlot;
+    if (choice === ASAP_ID && !asapAvailable) choice = "";
+    if (!choice) choice = slots[0]?.startsAt ?? "";
+    if (!choice) return;
+    setSelectedTime(choice === ASAP_ID ? "ASAP" : choice);
+    onClose();
+  };
 
   return (
     <>
@@ -89,7 +105,10 @@ export const TimePickerSheet = ({ isOpen, onClose }: TimePickerSheetProps) => {
                   key={day.toISOString()}
                   onClick={() => {
                     setSelectedDate(day);
-                    setSelectedSlot(ASAP_ID);
+                    // Clear rather than force ASAP — the effect above picks the
+                    // right default once the new day's availability lands (ASAP
+                    // is never valid on a future date).
+                    setSelectedSlot("");
                   }}
                   className={cn(
                     "flex flex-col items-center min-w-[60px] py-2 px-3 rounded-xl transition-all",

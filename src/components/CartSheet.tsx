@@ -9,6 +9,7 @@ import { MenuItem } from '@/types/menu';
 import { menuApi } from '@/services/menu';
 import { toast } from 'sonner';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { itemNeedsSelection } from "@/lib/options";
 import { useHaptics } from '@/hooks/useHaptics';
 import { computeLineUnitPrice } from '@/lib/pricing';
 
@@ -16,9 +17,14 @@ interface CartSheetProps {
   isOpen: boolean;
   onClose: () => void;
   onCheckout: () => void;
+  /**
+   * Opens the product sheet for an item that can't go straight into the cart
+   * (variation, required group, or an add-on group with a minimum selection).
+   */
+  onOpenItem?: (item: MenuItem) => void;
 }
 
-export const CartSheet = ({ isOpen, onClose, onCheckout }: CartSheetProps) => {
+export const CartSheet = ({ isOpen, onClose, onCheckout, onOpenItem }: CartSheetProps) => {
   useBodyScrollLock(isOpen);
   const { triggerHaptic } = useHaptics();
   
@@ -81,6 +87,13 @@ export const CartSheet = ({ isOpen, onClose, onCheckout }: CartSheetProps) => {
   }, [isOpen, storeId, items.length, menuItems]);
 
   const handleQuickAdd = (item: MenuItem) => {
+    // Same rule as the menu's quick-add: anything with a variation, a required
+    // group, or an add-on group with a minimum selection must be configured on
+    // the product sheet first.
+    if (itemNeedsSelection(item) && onOpenItem) {
+      onOpenItem(item);
+      return;
+    }
     addItem(item);
     toast.success(`${item.name} added`);
   };

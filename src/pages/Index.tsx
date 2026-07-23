@@ -27,6 +27,7 @@ import logo from '@/assets/logo.png';
 import { useStorefront } from '@/context/StorefrontContext';
 import { getStoreStatus } from '@/lib/format';
 import { playSound } from '@/lib/sound';
+import { itemNeedsSelection } from '@/lib/options';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -148,12 +149,10 @@ const Index = () => {
 
   const handleQuickAdd = (item: MenuItem) => {
     // Per spec: the quick-add (+) opens the product page when the item has
-    // variations (or any required option) so the customer must choose first;
-    // otherwise it adds straight to the cart.
-    const needsSelection = item.options?.some(
-      (o) => o.isVariation || o.required,
-    );
-    if (needsSelection) {
+    // variations, any required option, or an add-on group with a minimum
+    // selection, so the customer must choose first; otherwise it adds straight
+    // to the cart.
+    if (itemNeedsSelection(item)) {
       setSelectedItem(item);
       setIsItemSheetOpen(true);
       return;
@@ -315,12 +314,14 @@ const Index = () => {
           item={selectedItem}
           isOpen={isItemSheetOpen}
           onClose={() => setIsItemSheetOpen(false)}
+          onOpenItem={handleItemClick}
         />
 
         <CartSheet
           isOpen={isCartOpen}
           onClose={() => setIsCartOpen(false)}
           onCheckout={handleCheckout}
+          onOpenItem={handleItemClick}
         />
 
         <WalletSheet

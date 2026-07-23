@@ -39,65 +39,18 @@ import {
 } from "@/services/storefront";
 import { formatScheduleTime } from "@/lib/format";
 import { buildVariationAddons, computeLineUnitPrice } from "@/lib/pricing";
+import { openPaystack } from "@/lib/paystack";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { deliveryRegionsApi, type DeliveryRegion } from "@/services/delivery-regions";
 
 type PaymentMethod = "paystack" | "wallet" | "points" | "cash";
 
-interface PaystackInline {
-  setup(opts: {
-    key: string;
-    email: string;
-    amount: number;
-    ref: string;
-    onSuccess: (tx: { reference: string }) => void;
-    onCancel?: () => void;
-    onClose?: () => void;
-  }): { openIframe(): void };
-}
-
-declare global {
-  interface Window {
-    PaystackPop?: PaystackInline;
-  }
-}
-
-const PAYSTACK_SCRIPT = "https://js.paystack.co/v1/inline.js";
-
-const PAYSTACK_LOAD_TIMEOUT_MS = 10_000;
-
-function ensurePaystackLoaded(): Promise<PaystackInline> {
-  return new Promise((resolve, reject) => {
-    if (window.PaystackPop) {
-      resolve(window.PaystackPop);
-      return;
-    }
-    const existing = document.querySelector<HTMLScriptElement>(
-      `script[src="${PAYSTACK_SCRIPT}"]`,
-    );
-    const timer = setTimeout(() => {
-      reject(new Error("Paystack didn't load in time. Please retry."));
-    }, PAYSTACK_LOAD_TIMEOUT_MS);
-    const onLoad = () => {
-      clearTimeout(timer);
-      if (window.PaystackPop) resolve(window.PaystackPop);
-      else reject(new Error("Failed to load Paystack"));
-    };
-    const onError = () => {
-      clearTimeout(timer);
-      reject(new Error("Failed to load Paystack"));
-    };
-    if (existing) {
-      existing.addEventListener("load", onLoad, { once: true });
-      existing.addEventListener("error", onError, { once: true });
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = PAYSTACK_SCRIPT;
-    script.async = true;
-    script.onload = onLoad;
-    script.onerror = onError;
-    document.body.appendChild(script);
-  });
-}
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -108,6 +61,8 @@ const Checkout = () => {
     storeId,
     selectedAddressId,
     setSelectedAddressId,
+    selectedDeliveryRegionId,
+    setSelectedDeliveryRegionId,
     selectedPaymentMethodId,
     setSelectedPaymentMethodId,
     selectedTime,
@@ -163,6 +118,41 @@ const Checkout = () => {
     if (def) setSelectedAddressId(def.id);
   }, [addresses, orderType, selectedAddressId, setSelectedAddressId]);
 
+  // Delivery regions decide the delivery fee. Previously the storefront showed
+  // no delivery fee at all while the backend charged the store's flat rate, so
+  // the total the customer agreed to was lower than the amount taken.
+  const [deliveryRegions, setDeliveryRegions] = useState<DeliveryRegion[]>([]);
+  useEffect(() => {
+    if (!storeId) return;
+    let cancelled = false;
+    deliveryRegionsApi
+      .forStore(storeId)
+      .then((rows) => {
+        if (!cancelled) setDeliveryRegions(rows);
+      })
+      .catch(() => {
+        // A store with no regions configured keeps the old flat-fee behaviour.
+        if (!cancelled) setDeliveryRegions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [storeId]);
+
+  const selectedRegion =
+    deliveryRegions.find((r) => r.id === selectedDeliveryRegionId) ?? null;
+  const deliveryFee =
+    orderType === "delivery" ? Number(selectedRegion?.fee ?? 0) : 0;
+
+  // Keep the stored choice valid if the merchant deactivates a region.
+  useEffect(() => {
+    if (!selectedDeliveryRegionId) return;
+    if (deliveryRegions.length === 0) return;
+    if (!deliveryRegions.some((r) => r.id === selectedDeliveryRegionId)) {
+      setSelectedDeliveryRegionId(null);
+    }
+  }, [deliveryRegions, selectedDeliveryRegionId, setSelectedDeliveryRegionId]);
+
   const taxRate = Number(config?.taxRate ?? 0.075);
   const tipAmount =
     tipMode === "custom"
@@ -209,9 +199,9 @@ const Checkout = () => {
   const finalTotal = useMemo(() => {
     return Math.max(
       0,
-      total + tipAmount - couponDiscount - pointsRedemptionValue,
+      total + deliveryFee + tipAmount - couponDiscount - pointsRedemptionValue,
     );
-  }, [total, tipAmount, couponDiscount, pointsRedemptionValue]);
+  }, [total, deliveryFee, tipAmount, couponDiscount, pointsRedemptionValue]);
 
   const selectedAddress = addresses.find((a) => a.id === selectedAddressId);
 
@@ -273,6 +263,14 @@ const Checkout = () => {
       toast.error("Please select a delivery address");
       return;
     }
+    if (
+      orderType === "delivery" &&
+      deliveryRegions.length > 0 &&
+      !selectedDeliveryRegionId
+    ) {
+      toast.error("Please select a delivery region");
+      return;
+    }
     if (subtotal <= 0) {
       toast.error("Add at least one item to your cart");
       return;
@@ -329,6 +327,10 @@ const Checkout = () => {
           orderType === "delivery"
             ? selectedAddressId ?? undefined
             : undefined,
+        deliveryRegionId:
+          orderType === "delivery"
+            ? selectedDeliveryRegionId ?? undefined
+            : undefined,
         scheduledFor:
           selectedTime && selectedTime !== "ASAP" ? selectedTime : undefined,
         items: items.map((i) => {
@@ -365,36 +367,35 @@ const Checkout = () => {
       const orderId = res.order.id;
 
       if (res.payment?.requiresAction) {
+        // Keep the button disabled while the popup is open — the `finally`
+        // below used to re-enable it the instant the popup was handed control,
+        // so a second click created a second order and a second reference.
+        // runPaystack clears `submitting` in every one of its outcomes.
         await runPaystack(orderId, res.payment);
-      } else {
-        toast.success("Order placed");
-        clearCart();
-        navigate(`/order-tracking/${orderId}`);
+        return;
       }
-    } catch (e) {
-      toast.error((e as Error).message ?? "Couldn't place order");
-    } finally {
+      toast.success("Order placed");
+      clearCart();
       setSubmitting(false);
+      navigate(`/order-tracking/${orderId}`);
+    } catch (e) {
+      setSubmitting(false);
+      toast.error((e as Error).message ?? "Couldn't place order");
     }
   };
 
   const runPaystack = async (orderId: string, init: PaymentInit) => {
     try {
-      const popup = await ensurePaystackLoaded();
-      if (!init.publicKey || !init.reference) {
-        throw new Error("Paystack details missing");
-      }
-      const handler = popup.setup({
-        key: init.publicKey,
-        email: profile?.email ?? `customer-${profile?.id}@no-email.local`,
-        amount: Math.round(finalTotal * 100),
-        ref: init.reference,
-        onSuccess: async ({ reference }) => {
+      // The order's Paystack transaction was already initialised server-side.
+      // Resume it by access code — re-running setup({ ref }) would initialise
+      // the same reference twice and Paystack answers "Duplicate Transaction
+      // Reference", which is why success never reached the order page.
+      await openPaystack(init, {
+        onSuccess: async (reference) => {
           try {
             await ordersApi.verifyPayment(orderId, reference);
             toast.success("Payment successful");
             clearCart();
-            navigate(`/order-tracking/${orderId}`);
           } catch (e) {
             // Payment verification failed but the order exists. Don't clear
             // the cart — the customer may want to retry. Send them to order
@@ -403,24 +404,33 @@ const Checkout = () => {
               (e as Error).message ??
                 "Couldn't verify payment — your order is still recorded.",
             );
+          } finally {
+            setSubmitting(false);
             navigate(`/order-tracking/${orderId}`);
           }
         },
         onCancel: () => {
+          setSubmitting(false);
           toast.info("Payment cancelled — you can retry from your order page.");
           navigate(`/order-tracking/${orderId}`);
         },
         onClose: () => {
-          // Customer dismissed the popup — surface the same affordance.
+          // Customer dismissed the popup. Always land them on the order record
+          // page — previously they were left on checkout with an invisible,
+          // unpaid order.
+          setSubmitting(false);
           toast.info("Payment closed — you can retry from your order page.");
+          navigate(`/order-tracking/${orderId}`);
         },
       });
-      handler.openIframe();
     } catch (e) {
+      setSubmitting(false);
       toast.error(
-        (e as Error).message ??
-          "Failed to start payment. Please try again.",
+        (e as Error).message ?? "Failed to start payment. Please try again.",
       );
+      // The order exists even though the popup never opened — don't strand the
+      // customer on checkout with no record of it.
+      navigate(`/order-tracking/${orderId}`);
     }
   };
 
@@ -504,6 +514,25 @@ const Checkout = () => {
                 )}
               </div>
             </div>
+            {orderType === "delivery" && deliveryRegions.length > 0 && (
+              <div className="mt-3">
+                <Select
+                  value={selectedDeliveryRegionId}
+                  onValueChange={setSelectedDeliveryRegionId}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select delivery region" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {deliveryRegions.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.name} — ₦{Number(r.fee).toLocaleString()}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="flex items-center gap-2 mt-3 text-sm text-muted-foreground">
               <Clock className="w-4 h-4" />
               <span>{formatScheduleTime(selectedTime)}</span>
@@ -782,6 +811,16 @@ const Checkout = () => {
               </span>
               <span>₦{tax.toLocaleString()}</span>
             </div>
+            {orderType === "delivery" && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Delivery fee</span>
+                <span>
+                  {selectedRegion
+                    ? `₦${deliveryFee.toLocaleString()}`
+                    : "Select a region"}
+                </span>
+              </div>
+            )}
             {tipAmount > 0 && (
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Tip</span>

@@ -14,6 +14,8 @@ import { useCart } from "@/context/CartContext";
 import { useMenu } from "@/context/MenuContext";
 import { ordersApi, type StorefrontOrder } from "@/services/orders";
 import { reviewsApi } from "@/services/reviews";
+import { ApiError } from "@/lib/api-client";
+import { itemNeedsSelection } from "@/lib/options";
 import { OrderReviewSheet } from "@/components/OrderReviewSheet";
 import { toast } from "sonner";
 
@@ -32,6 +34,11 @@ const OrderHistory = () => {
   const [error, setError] = useState<string | null>(null);
   // Order currently being reviewed (drives the reusable review sheet).
   const [reviewOrder, setReviewOrder] = useState<StorefrontOrder | null>(null);
+  // Orders we know already carry a review, so the Review button stops offering
+  // an action that can only fail with a 409.
+  const [reviewedOrderIds, setReviewedOrderIds] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   // Initial page.
   useEffect(() => {
@@ -109,6 +116,7 @@ const OrderHistory = () => {
     triggerHaptic("light");
     let added = 0;
     let missing = 0;
+    let needsChoice = 0;
     for (const item of o.items) {
       if (!item.productId) {
         missing += 1;
@@ -119,14 +127,29 @@ const OrderHistory = () => {
         missing += 1;
         continue;
       }
+      // Reorder drops the original variation/add-on picks, so an item that
+      // needs a choice can't be re-added blind — it would silently land in the
+      // cart with no variation and the wrong price.
+      if (itemNeedsSelection(menuItem)) {
+        needsChoice += 1;
+        continue;
+      }
       addItem(menuItem, item.quantity);
       added += 1;
     }
     if (added === 0) {
-      toast.error("None of those items are still on the menu.");
+      toast.error(
+        needsChoice > 0
+          ? "Those items need options chosen — please add them from the menu."
+          : "None of those items are still on the menu.",
+      );
       return;
     }
-    if (missing > 0) {
+    if (needsChoice > 0) {
+      toast.success(
+        `${added} item(s) added — ${needsChoice} need options chosen on the menu.`,
+      );
+    } else if (missing > 0) {
       toast.success(`${added} item(s) added — ${missing} no longer available.`);
     } else {
       toast.success(`${added} item${added === 1 ? "" : "s"} added to your cart`);
@@ -142,8 +165,17 @@ const OrderHistory = () => {
         comment: review || undefined,
       });
       toast.success(`Thanks for your ${rating}-star review!`);
+      setReviewedOrderIds((prev) => new Set(prev).add(reviewOrder.id));
       setReviewOrder(null);
     } catch (e) {
+      // 409 means this order already carries a review — that's a normal state,
+      // not a failure the customer should see as an error.
+      if (e instanceof ApiError && e.status === 409) {
+        toast.info("You've already reviewed this order");
+        setReviewedOrderIds((prev) => new Set(prev).add(reviewOrder.id));
+        setReviewOrder(null);
+        return;
+      }
       toast.error((e as Error).message ?? "Couldn't submit review");
     }
   };
@@ -211,7 +243,8 @@ const OrderHistory = () => {
                         <span className="font-semibold">
                           ₦{Number(o.total).toLocaleString()}
                         </span>
-                        {(o.status === "completed" || o.status === "served") && (
+                        {(o.status === "completed" || o.status === "served") &&
+                          !reviewedOrderIds.has(o.id) && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -261,6 +294,7 @@ const OrderHistory = () => {
         onClose={() => setReviewOrder(null)}
         onSubmit={handleReviewSubmit}
         orderId={reviewOrder?.id}
+        orderNumber={reviewOrder?.orderNumber}
       />
     </PageTransition>
   );
