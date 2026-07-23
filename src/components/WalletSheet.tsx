@@ -433,7 +433,15 @@ export const WalletSheet = ({ isOpen, onClose }: WalletSheetProps) => {
     setDepositing(true);
     try {
       const init = await profileApi.startDeposit(amount);
-      await openPaystack(init, {
+      await openPaystack(
+        {
+          publicKey: init.publicKey,
+          email: init.email,
+          amountKobo: init.amountKobo,
+          reference: init.reference,
+          metadata: { kind: "wallet_deposit" },
+        },
+        {
         onSuccess: async (reference) => {
           try {
             const res = await profileApi.verifyDeposit(reference);

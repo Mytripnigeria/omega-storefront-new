@@ -386,11 +386,18 @@ const Checkout = () => {
 
   const runPaystack = async (orderId: string, init: PaymentInit) => {
     try {
-      // The order's Paystack transaction was already initialised server-side.
-      // Resume it by access code — re-running setup({ ref }) would initialise
-      // the same reference twice and Paystack answers "Duplicate Transaction
-      // Reference", which is why success never reached the order page.
-      await openPaystack(init, {
+      // The backend stamped the reference on the order but did NOT initialise
+      // it on Paystack, so the inline popup below is the single initialisation
+      // — a real popup, no "duplicate reference", no redirect.
+      await openPaystack(
+        {
+          publicKey: init.publicKey ?? "",
+          email: profile?.email ?? `customer-${profile?.id}@no-email.local`,
+          amountKobo: init.amount ?? Math.round(finalTotal * 100),
+          reference: init.reference ?? "",
+          metadata: { orderId, kind: "storefront_order" },
+        },
+        {
         onSuccess: async (reference) => {
           try {
             await ordersApi.verifyPayment(orderId, reference);

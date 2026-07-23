@@ -40,9 +40,12 @@ export interface PublicAddon {
 export interface PublicAddonGroup {
   id: string;
   name: string;
-  required: boolean;
-  minSelections: number | null;
-  maxSelections: number | null;
+  // The public API mirrors the entity field names (SINGULAR). The storefront
+  // previously read `minSelections`/`maxSelections`/`required` (which the API
+  // never sends), so a min-selection group was silently treated as optional and
+  // the product page never popped up before carting.
+  minSelection: number | null;
+  maxSelection: number | null;
   addons: PublicAddon[];
 }
 

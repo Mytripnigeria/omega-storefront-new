@@ -136,9 +136,9 @@ export const profileApi = {
     return apiRequest<{
       reference: string;
       amount: number;
-      authorizationUrl: string;
-      accessCode: string;
+      amountKobo: number;
       publicKey: string;
+      email: string;
     }>("/storefront/me/wallet/deposit", {
       method: "POST",
       body: JSON.stringify({ amount }),

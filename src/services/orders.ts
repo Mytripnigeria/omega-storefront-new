@@ -94,10 +94,10 @@ export interface PlaceOrderRequest {
 
 export interface PaymentInit {
   requiresAction: boolean;
-  authorizationUrl?: string;
-  accessCode?: string;
   reference?: string;
   publicKey?: string;
+  /** Amount in kobo for the inline popup (server-authoritative). */
+  amount?: number;
 }
 
 export interface PlaceOrderResponse {

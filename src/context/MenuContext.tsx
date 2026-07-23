@@ -64,12 +64,16 @@ function productToMenuItem(p: PublicProduct, categoryId: string): MenuItem {
 
   for (const group of p.addonGroups ?? []) {
     if (!group.addons || group.addons.length === 0) continue;
+    // A group with a minimum selection of 1+ is effectively required — the
+    // API has no separate `required` flag, so derive it from minSelection.
+    const minSel = group.minSelection ?? undefined;
+    const maxSel = group.maxSelection ?? undefined;
     options.push({
       id: group.id,
       name: group.name,
-      required: group.required,
-      maxSelections: group.maxSelections ?? undefined,
-      minSelections: group.minSelections ?? undefined,
+      required: (minSel ?? 0) >= 1,
+      maxSelections: maxSel,
+      minSelections: minSel,
       choices: group.addons
         .filter((a) => a.isAvailable !== false)
         .map<OptionChoice>((a) => ({

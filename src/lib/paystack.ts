@@ -1,44 +1,40 @@
 /**
- * Shared Paystack inline-checkout helper.
+ * Shared Paystack inline-checkout helper. Both checkout and the wallet top-up
+ * drive the same popup, so the loader and launch logic live here.
  *
- * Both checkout and the wallet top-up drive the same popup, so the loader and
- * the launch logic live here rather than being duplicated.
+ * IMPORTANT — why `PaystackPop.setup().openIframe()` and NOT the backend
+ * `initialize` + `resumeTransaction` flow:
  *
- * IMPORTANT — why `resumeTransaction` and not `setup({ ref })`:
- * the backend has already called Paystack `/transaction/initialize` and holds
- * the resulting access code. Calling `setup({ ref })` makes inline.js
- * initialise the *same reference a second time*, which Paystack rejects with
- * "Duplicate Transaction Reference" — the popup then never fires onSuccess and
- * the customer is stranded. `resumeTransaction(accessCode)` attaches to the
- * transaction the server already created, and takes its amount from that
- * server-side initialisation, so the client can't disagree about the price
- * either.
+ *   - v1 `inline.js` exposes `window.PaystackPop` as an OBJECT with a `.setup()`
+ *     method — it is NOT a constructor, and it has no `resumeTransaction`. Our
+ *     earlier attempt to call `new PaystackPop().resumeTransaction(accessCode)`
+ *     therefore always failed and fell back to a full-page REDIRECT (the client
+ *     reported "paystack redirects instead of popup"). `resumeTransaction` is a
+ *     v2 (`@paystack/inline-js`) API.
+ *   - The ORIGINAL "duplicate reference" bug happened because the backend called
+ *     `/transaction/initialize` AND the popup initialised the same reference a
+ *     second time. The backend now does NOT pre-initialise — it only hands us
+ *     the reference it stamped on the order + the public key + the amount. So
+ *     `setup({ ref })` performs the single, only initialisation → a real popup,
+ *     no duplicate. The amount is re-verified server-side, so a tampered popup
+ *     amount can never complete the order.
  */
 
 export interface PaystackInline {
-  /** Legacy API — kept only as a fallback for older inline.js builds. */
-  setup?(opts: {
+  setup(opts: {
     key: string;
     email: string;
     amount: number;
     ref: string;
-    onSuccess: (tx: { reference: string }) => void;
+    currency?: string;
+    metadata?: Record<string, unknown>;
+    onSuccess?: (tx: { reference: string }) => void;
+    onLoad?: (resp: unknown) => void;
     onCancel?: () => void;
+    /** Legacy callback name kept for older inline.js builds. */
+    callback?: (tx: { reference: string }) => void;
     onClose?: () => void;
   }): { openIframe(): void };
-  new (): PaystackPopInstance;
-}
-
-export interface PaystackPopInstance {
-  resumeTransaction(
-    accessCode: string,
-    callbacks?: {
-      onSuccess?: (tx: { reference: string }) => void;
-      onCancel?: () => void;
-      onClose?: () => void;
-      onError?: (err: unknown) => void;
-    },
-  ): void;
 }
 
 declare global {
@@ -85,10 +81,16 @@ export function ensurePaystackLoaded(): Promise<PaystackInline> {
   });
 }
 
-export interface PaystackInitialization {
-  accessCode?: string;
-  authorizationUrl?: string;
-  reference?: string;
+export interface PaystackLaunchParams {
+  /** Merchant public key (from the backend). */
+  publicKey: string;
+  /** Customer email. */
+  email: string;
+  /** Amount in kobo (server-authoritative). */
+  amountKobo: number;
+  /** The reference the backend stamped on the order/deposit. */
+  reference: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface PaystackHandlers {
@@ -98,42 +100,36 @@ export interface PaystackHandlers {
 }
 
 /**
- * Opens the popup for a transaction the server already initialised. Resolves
- * once the popup has been handed control; the outcome arrives via `handlers`.
- * Falls back to a full-page redirect when the loaded inline.js is too old to
- * expose `resumeTransaction`.
+ * Opens the Paystack inline popup for a reference the backend already created
+ * (but did NOT initialise on Paystack). This is the single initialisation, so
+ * there is no duplicate-reference error and it is always a popup — never a
+ * redirect.
  */
 export async function openPaystack(
-  init: PaystackInitialization,
+  params: PaystackLaunchParams,
   handlers: PaystackHandlers,
 ): Promise<void> {
   const PaystackPop = await ensurePaystackLoaded();
 
-  if (!init.accessCode) {
-    if (init.authorizationUrl) {
-      window.location.href = init.authorizationUrl;
-      return;
-    }
+  if (!params.publicKey || !params.reference) {
     throw new Error("Payment could not be started. Please retry.");
   }
 
-  const instance =
-    typeof PaystackPop === "function" ? new PaystackPop() : undefined;
+  const succeed = (tx: { reference: string }) =>
+    void handlers.onSuccess(tx?.reference ?? params.reference);
 
-  if (!instance || typeof instance.resumeTransaction !== "function") {
-    // Old inline.js: redirect instead of re-initialising the reference.
-    if (init.authorizationUrl) {
-      window.location.href = init.authorizationUrl;
-      return;
-    }
-    throw new Error("Payment could not be started. Please retry.");
-  }
-
-  instance.resumeTransaction(init.accessCode, {
-    onSuccess: (tx) => {
-      void handlers.onSuccess(tx?.reference ?? init.reference ?? "");
-    },
+  const handler = PaystackPop.setup({
+    key: params.publicKey,
+    email: params.email,
+    amount: Math.round(params.amountKobo),
+    ref: params.reference,
+    currency: "NGN",
+    metadata: params.metadata,
+    onSuccess: succeed,
+    // Older inline.js builds fire `callback` rather than `onSuccess`.
+    callback: succeed,
     onCancel: handlers.onCancel,
     onClose: handlers.onClose,
   });
+  handler.openIframe();
 }
