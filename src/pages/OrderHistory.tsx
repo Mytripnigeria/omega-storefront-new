@@ -157,12 +157,19 @@ const OrderHistory = () => {
     navigate("/");
   };
 
-  const handleReviewSubmit = async (rating: number, review: string) => {
+  const handleReviewSubmit = async (
+    rating: number,
+    review: string,
+    images?: string[],
+  ) => {
     if (!reviewOrder) return;
     try {
       await reviewsApi.submit(reviewOrder.id, {
         rating,
         comment: review || undefined,
+        // The picker already collected these as data URLs; they were being
+        // discarded here, so attached photos never reached the merchant.
+        images,
       });
       toast.success(`Thanks for your ${rating}-star review!`);
       setReviewedOrderIds((prev) => new Set(prev).add(reviewOrder.id));

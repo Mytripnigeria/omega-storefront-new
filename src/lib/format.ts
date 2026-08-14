@@ -7,8 +7,14 @@ import { format, isToday, isTomorrow } from "date-fns";
  *   later     -> "May 31, 10:30 AM"
  * "ASAP"/empty passes through unchanged.
  */
+/**
+ * Label for the time chip. An empty selection means the store is closed and no
+ * slot has been picked yet, which reads as "Schedule" — a prompt to choose an
+ * available time rather than a silent "ASAP" the store cannot honour.
+ */
 export function formatScheduleTime(value?: string | null): string {
-  if (!value || value === "ASAP") return "ASAP";
+  if (value === "ASAP") return "ASAP";
+  if (!value) return "Schedule";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;
   const time = format(d, "h:mm a");

@@ -93,9 +93,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({
     string | null
   >(persisted.selectedDeliveryRegionId ?? null);
 
-  // "ASAP" must never survive into checkout while the store is closed — a
-  // persisted (or defaulted) ASAP is replaced with the first bookable slot as
-  // soon as the store's availability is known.
+  // ASAP is the default while the store is open. Once availability says it is
+  // closed, the selection is cleared so the time chip reads "Schedule" and the
+  // customer picks an available slot themselves — previously a slot was chosen
+  // silently on their behalf, and "ASAP" must never survive into checkout for a
+  // store that cannot start cooking now.
   useEffect(() => {
     if (!storeId || selectedTime !== "ASAP") return;
     let cancelled = false;
@@ -105,7 +107,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({
       .forStore(storeId, isoDate)
       .then((res) => {
         if (cancelled || res.asapAvailable) return;
-        setSelectedTime(res.slots?.[0]?.startsAt ?? "");
+        setSelectedTime("");
       })
       .catch(() => {
         // Network blip — leave the selection alone; the server still validates.

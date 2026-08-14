@@ -152,12 +152,19 @@ const OrderTracking = () => {
       .catch(() => setHasReview(false));
   }, [order, hasReview]);
 
-  const handleReviewSubmit = async (rating: number, comment: string) => {
+  const handleReviewSubmit = async (
+    rating: number,
+    comment: string,
+    images?: string[],
+  ) => {
     if (!order) return;
     try {
       await reviewsApi.submit(order.id, {
         rating,
         comment: comment || undefined,
+        // The picker already collected these as data URLs; they were being
+        // discarded here, so attached photos never reached the merchant.
+        images,
       });
       toast.success(`Thanks for your ${rating}-star review!`);
       setHasReview(true);

@@ -126,6 +126,17 @@ export const ordersApi = {
       { method: "POST", body: JSON.stringify({ reference }) },
     );
   },
+  /**
+   * Void an order whose payment was cancelled or dismissed, so a never-charged
+   * order isn't left pending for the kitchen. No-op server-side if the charge
+   * actually succeeded.
+   */
+  abandonPayment(orderId: string) {
+    return apiRequest<StorefrontOrder>(
+      `/storefront/me/orders/${orderId}/abandon-payment`,
+      { method: "POST" },
+    );
+  },
   list(params?: { status?: string; page?: number; limit?: number }) {
     const q = new URLSearchParams();
     if (params?.status) q.set("status", params.status);

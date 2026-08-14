@@ -159,7 +159,7 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     try {
       const [cats, prods, cmbs] = await Promise.all([
-        menuApi.categories(),
+        menuApi.categories(storeId),
         menuApi.products(storeId),
         menuApi.combos(storeId),
       ]);

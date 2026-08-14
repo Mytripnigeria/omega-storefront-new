@@ -135,8 +135,15 @@ export const menuApi = {
   stores() {
     return publicGet<PublicStore[]>("/public/storefront/stores");
   },
-  categories() {
-    return publicGet<PublicCategory[]>("/public/storefront/menu/categories");
+  /**
+   * Categories are store-scoped. Without the storeId the endpoint returns every
+   * category across all of a merchant's stores, which is why the storefront
+   * showed categories belonging to other branches.
+   */
+  categories(storeId: string) {
+    return publicGet<PublicCategory[]>(
+      `/public/storefront/menu/categories?storeId=${encodeURIComponent(storeId)}`,
+    );
   },
   products(storeId: string, opts?: { categoryId?: string; search?: string }) {
     const q = new URLSearchParams({ storeId });

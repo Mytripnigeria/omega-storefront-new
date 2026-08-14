@@ -10,6 +10,8 @@ export interface OrderReview {
   rating: number;
   comment: string | null;
   isPublished: boolean;
+  /** Photos the customer attached, if any. */
+  imageUrls: string[] | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -20,7 +22,10 @@ export const reviewsApi = {
       `/storefront/me/orders/${orderId}/review`,
     );
   },
-  submit(orderId: string, data: { rating: number; comment?: string }) {
+  submit(
+    orderId: string,
+    data: { rating: number; comment?: string; images?: string[] },
+  ) {
     return apiRequest<OrderReview>(`/storefront/me/orders/${orderId}/review`, {
       method: "POST",
       body: JSON.stringify(data),

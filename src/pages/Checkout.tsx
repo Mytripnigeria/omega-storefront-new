@@ -275,6 +275,12 @@ const Checkout = () => {
       toast.error("Add at least one item to your cart");
       return;
     }
+    // The time chip reads "Schedule" (empty selection) only when the store is
+    // closed, so an order can't go through without the customer choosing a slot.
+    if (!selectedTime) {
+      toast.error("The store is closed — pick a scheduled time for your order");
+      return;
+    }
     if (
       paymentMethod === "wallet" &&
       finalTotal > Number(profile.walletBalance ?? 0)
@@ -384,6 +390,22 @@ const Checkout = () => {
     }
   };
 
+  /**
+   * Voids an order whose payment never completed and returns the customer to
+   * checkout with their cart intact, so they can retry or switch payment
+   * method. An order only proceeds once Paystack has actually charged.
+   */
+  const abandonOrder = async (orderId: string, message?: string) => {
+    try {
+      await ordersApi.abandonPayment(orderId);
+    } catch {
+      // Best-effort: the backend also voids uncharged orders on its own
+      // reconciliation path, and it refuses to void one that did get paid.
+    }
+    setSubmitting(false);
+    if (message) toast.info(message);
+  };
+
   const runPaystack = async (orderId: string, init: PaymentInit) => {
     try {
       // The backend stamped the reference on the order but did NOT initialise
@@ -417,27 +439,22 @@ const Checkout = () => {
           }
         },
         onCancel: () => {
-          setSubmitting(false);
-          toast.info("Payment cancelled — you can retry from your order page.");
-          navigate(`/order-tracking/${orderId}`);
+          void abandonOrder(orderId, "Payment cancelled — your order was not placed.");
         },
         onClose: () => {
-          // Customer dismissed the popup. Always land them on the order record
-          // page — previously they were left on checkout with an invisible,
-          // unpaid order.
-          setSubmitting(false);
-          toast.info("Payment closed — you can retry from your order page.");
-          navigate(`/order-tracking/${orderId}`);
+          // Customer dismissed the popup without paying. The order must not
+          // survive: it was never charged, and an uncharged order sitting in
+          // "pending" would reach the kitchen.
+          void abandonOrder(orderId, "Payment closed — your order was not placed.");
         },
       });
     } catch (e) {
-      setSubmitting(false);
       toast.error(
         (e as Error).message ?? "Failed to start payment. Please try again.",
       );
-      // The order exists even though the popup never opened — don't strand the
-      // customer on checkout with no record of it.
-      navigate(`/order-tracking/${orderId}`);
+      // The popup never opened, so nothing was charged — void the order rather
+      // than leaving an unpayable one behind.
+      await abandonOrder(orderId);
     }
   };
 
