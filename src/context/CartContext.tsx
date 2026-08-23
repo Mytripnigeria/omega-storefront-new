@@ -99,15 +99,25 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({
   // silently on their behalf, and "ASAP" must never survive into checkout for a
   // store that cannot start cooking now.
   useEffect(() => {
-    if (!storeId || selectedTime !== "ASAP") return;
+    // Only the two "unset" states are managed here. An explicit ISO datetime
+    // means the customer deliberately scheduled a slot, and must never be
+    // silently rewritten.
+    if (!storeId || (selectedTime !== "ASAP" && selectedTime !== "")) return;
     let cancelled = false;
     const today = new Date();
     const isoDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
     void availabilityApi
       .forStore(storeId, isoDate)
       .then((res) => {
-        if (cancelled || res.asapAvailable) return;
-        setSelectedTime("");
+        if (cancelled) return;
+        if (!res.asapAvailable && selectedTime === "ASAP") {
+          setSelectedTime("");
+        } else if (res.asapAvailable && selectedTime === "") {
+          // The store has since opened (or a stale cart was carried over from
+          // when it was closed) — restore the ASAP default rather than leaving
+          // the customer on "Schedule" during normal trading hours.
+          setSelectedTime("ASAP");
+        }
       })
       .catch(() => {
         // Network blip — leave the selection alone; the server still validates.
