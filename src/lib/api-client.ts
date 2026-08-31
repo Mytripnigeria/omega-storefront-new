@@ -80,6 +80,27 @@ async function refreshAccessToken(): Promise<string> {
   return newAccess;
 }
 
+/**
+ * `fetch` rejects — rather than resolving with a response — when the request
+ * never completes a CORS-visible round trip: the API is unreachable, or the
+ * gateway answered without the CORS headers (our nginx does that on 5xx). The
+ * browser's own message for that is a bare "Load failed" / "Failed to fetch",
+ * which tells a customer nothing. Say what actually happened instead.
+ */
+async function fetchOrExplain(
+  url: string,
+  init: RequestInit,
+): Promise<Response> {
+  try {
+    return await fetch(url, init);
+  } catch {
+    throw new Error(
+      "Could not reach the server. It may be offline, or the request failed " +
+        "before a reply came back — check your connection and try again.",
+    );
+  }
+}
+
 export async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
@@ -92,7 +113,7 @@ export async function apiRequest<T>(
       ...(options.headers as Record<string, string>),
     };
     if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
-    return fetch(`${API_URL}${path}`, { ...options, headers });
+    return fetchOrExplain(`${API_URL}${path}`, { ...options, headers });
   };
 
   let response = await makeRequest(token);
